@@ -1,3 +1,4 @@
+using MudBlazor.Services;
 using StockManagement.Components;
 using StockManagement.Extensions;
 
@@ -8,6 +9,8 @@ builder.Services.AddDatabaseConnection(builder.Configuration);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddMudServices();
 
 var app = builder.Build();
 
