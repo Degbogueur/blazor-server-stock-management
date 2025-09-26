@@ -8,7 +8,7 @@ public class Product : BaseEntity
     public string? Code { get; set; }
     public int CurrentStock { get; set; }
     public int MinimumStockLevel { get; set; }
-    public required int CategoryId { get; set; }
+    public int CategoryId { get; set; }
     public Category? Category { get; set; }
 
     [NotMapped]

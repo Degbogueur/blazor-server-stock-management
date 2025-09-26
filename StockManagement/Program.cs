@@ -1,8 +1,11 @@
 using StockManagement.Components;
+using StockManagement.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddDatabaseConnection(builder.Configuration);
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
