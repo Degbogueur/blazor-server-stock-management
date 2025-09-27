@@ -2,7 +2,11 @@
 
 <MudThemeProvider />
 <MudPopoverProvider />
-<MudDialogProvider />
+<MudDialogProvider FullWidth="true"
+                   MaxWidth="MaxWidth.Small"
+                   CloseButton="true"
+                   Position="DialogPosition.Center"
+                   CloseOnEscapeKey="true"/>
 <MudSnackbarProvider />
 
 <MudLayout>
@@ -21,13 +25,13 @@
         <MudContainer MaxWidth="MaxWidth.False" Class="py-4">
             @Body
         </MudContainer>
-    </MudMainContent>
 
-    <div id="blazor-error-ui">
-        An unhandled error has occurred.
-        <a href="" class="reload">Reload</a>
-        <a class="dismiss">🗙</a>
-    </div>
+        <div id="blazor-error-ui">
+            An unhandled error has occurred.
+            <a href="" class="reload">Reload</a>
+            <a class="dismiss">🗙</a>
+        </div>
+    </MudMainContent>
 </MudLayout>
 
 @code {

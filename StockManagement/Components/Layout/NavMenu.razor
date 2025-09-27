@@ -1,9 +1,46 @@
 ﻿<MudNavMenu>
-    <MudNavLink Href="/" Match="NavLinkMatch.All">Dashboard</MudNavLink>
-    <MudNavLink Href="/servers" Match="NavLinkMatch.Prefix">Servers</MudNavLink>
-    <MudNavGroup Title="Settings" Expanded="true">
-        <MudNavLink Href="/users" Match="NavLinkMatch.Prefix">Users</MudNavLink>
-        <MudNavLink Href="/security" Match="NavLinkMatch.Prefix">Security</MudNavLink>
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+        Dashboard
+    </MudNavLink>
+
+    <MudNavLink Href="/products" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Inventory2">
+        Products
+    </MudNavLink>
+
+    <MudNavLink Href="/employees" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.People">
+        Employees
+    </MudNavLink>
+
+    <MudNavLink Href="/suppliers" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.LocalShipping">
+        Suppliers
+    </MudNavLink>
+
+    <MudNavLink Href="/categories" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Category">
+        Categories
+    </MudNavLink>
+
+    <MudNavGroup Title="Stock Management" Expanded="true" Icon="@Icons.Material.Filled.MoveToInbox">
+        <MudNavLink Href="/stockIn" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Add">
+            Stock In
+        </MudNavLink>
+        <MudNavLink Href="/stockOut" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Remove">
+            Stock Out
+        </MudNavLink>
     </MudNavGroup>
-    <MudNavLink Href="/about" Match="NavLinkMatch.Prefix">About</MudNavLink>
+
+    @*<MudNavGroup Title="Reports" Expanded="false" Icon="@Icons.Material.Filled.Assessment">
+        <MudNavLink Href="/reports/stock-levels" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.BarChart">
+            Stock Levels
+        </MudNavLink>
+        <MudNavLink Href="/reports/transactions" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.History">
+            Transaction History
+        </MudNavLink>
+        <MudNavLink Href="/reports/low-stock" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Warning">
+            Low Stock Alert
+        </MudNavLink>
+    </MudNavGroup>*@
+
+    <MudNavLink Href="/settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings">
+        Settings
+    </MudNavLink>
 </MudNavMenu>
