@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using StockManagement.Data;
 using StockManagement.Mappers;
+using StockManagement.Models;
 using StockManagement.ViewModels.Categories;
 
 namespace StockManagement.Services;
@@ -10,7 +11,7 @@ public interface ICategoryService
     Task<bool> CreateNewCategoryAsync(CreateOrUpdateCategoryViewModel viewModel);
     Task<bool> DeleteCategoryAsync(int id);
     Task<IEnumerable<CategoryViewModel>> GetCategoriesListAsync();
-    Task<CreateOrUpdateCategoryViewModel?> GetUpdateCategoryViewModelAsync(int id);
+    Task<Category> GetCategoryByNameOrCreateAsync(string name);
     Task<bool> UpdateCategoryAsync(CreateOrUpdateCategoryViewModel viewModel);
     Task<IEnumerable<string>> SearchCategoriesAsync(string value, CancellationToken token, int count = 10);
 }
@@ -57,7 +58,6 @@ internal class CategoryService(
     public async Task<IEnumerable<CategoryViewModel>> GetCategoriesListAsync()
     {
         return await dbContext.Categories
-            .AsNoTracking()
             .OrderBy(c => c.Name)
             .Select(c => new CategoryViewModel
             {
@@ -65,20 +65,23 @@ internal class CategoryService(
                 Name = c.Name,
                 Description = c.Description,
                 ProductsCount = c.Products.Count
-            }).ToListAsync();
+            })
+            .AsNoTracking()
+            .ToListAsync();
     }
 
-    public async Task<CreateOrUpdateCategoryViewModel?> GetUpdateCategoryViewModelAsync(int id)
+    public async Task<Category> GetCategoryByNameOrCreateAsync(string name)
     {
-        return await dbContext.Categories
-            .AsNoTracking()
-            .Where(c => c.Id == id)
-            .Select(c => new CreateOrUpdateCategoryViewModel
-            {
-                Id = c.Id,
-                Name = c.Name,
-                Description = c.Description
-            }).FirstOrDefaultAsync();
+        var category = await dbContext.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Name == name);
+
+        if (category is null)
+        { 
+            category = new Category { Name = name };
+            await dbContext.Categories.AddAsync(category);
+            await dbContext.SaveChangesAsync();
+        }
+
+        return category;
     }
 
     public async Task<bool> UpdateCategoryAsync(CreateOrUpdateCategoryViewModel viewModel)

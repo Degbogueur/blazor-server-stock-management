@@ -4,6 +4,7 @@ namespace StockManagement.ViewModels.Products;
 
 public class CreateOrUpdateProductViewModel
 {
+    public int? Id { get; set; }
     [Required] 
     public string Name { get; set; } = string.Empty;
     public string? Code { get; set; }

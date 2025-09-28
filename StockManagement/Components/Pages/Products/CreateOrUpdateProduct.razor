@@ -44,7 +44,8 @@
                              SearchFunc="SearchCategory"
                              Clearable
                              CoerceText="false"
-                             CoerceValue="true" />
+                             CoerceValue="true"
+                             DebounceInterval="300" />
         </DialogContent>
         <DialogActions>
             <MudButton OnClick="Cancel">Cancel</MudButton>
@@ -62,6 +63,14 @@
 
     private async Task OnValidSubmit()
     {
+        if (Model.Id.HasValue && Model.Id != 0)
+            await UpdateProduct();
+
+        else await CreateProduct();
+    }
+
+    private async Task CreateProduct()
+    {
         var result = await ProductService.AddNewProductAsync(Model);
 
         if (result)
@@ -70,8 +79,23 @@
             MudDialog.Close();
         }
         else
-        { 
+        {
             Snackbar.Add("Error adding new product", Severity.Error);
+        }
+    }
+
+    private async Task UpdateProduct()
+    {
+        var result = await ProductService.UpdateProductAsync(Model);
+
+        if (result)
+        {
+            Snackbar.Add("Product updated successfully", Severity.Success);
+            MudDialog.Close();
+        }
+        else
+        {
+            Snackbar.Add("Error updating product", Severity.Error);
         }
     }
 

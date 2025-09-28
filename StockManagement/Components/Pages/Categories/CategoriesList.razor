@@ -122,7 +122,12 @@
 
     private async Task UpdateCategory(CellContext<CategoryViewModel> context)
     {
-        var updateViewModel = await CategoryService.GetUpdateCategoryViewModelAsync(context.Item.Id);
+        var updateViewModel = new CreateOrUpdateCategoryViewModel
+        {
+            Id = context.Item.Id,
+            Name = context.Item.Name,
+            Description = context.Item.Description
+        };
 
         if (updateViewModel is null)
         {
@@ -130,7 +135,10 @@
             return;
         }
 
-        var parameters = new DialogParameters<CreateOrUpdateCategory> { { x => x.Model, updateViewModel } };
+        var parameters = new DialogParameters<CreateOrUpdateCategory> 
+        { 
+            { x => x.Model, updateViewModel }
+        };
         var dialog = await DialogService.ShowAsync<CreateOrUpdateCategory>("Update category", parameters);
         var result = await dialog.Result;
 
@@ -144,7 +152,7 @@
     {
         var parameters = new DialogParameters<ConfirmationDialog>
         {
-            { x => x.ContentText, $"Do you really want to delete this record ? This process cannot be undone." },
+            { x => x.ContentText, "Do you really want to delete this record ? This process cannot be undone." },
             { x => x.ButtonText, "Delete" },
             { x => x.Color, Color.Error }
         };
