@@ -1,0 +1,129 @@
+﻿@page "/products"
+
+@using StockManagement.ViewModels.Products
+
+@inject IProductService ProductService
+@inject IDialogService DialogService
+
+<PageTitle>List of products</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Products</MudText>
+
+<MudDataGrid @ref="dataGrid" T="ProductViewModel" ServerData="ServerReload" Filterable="false">
+    <ToolBarContent>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateProduct" >
+            Add new product
+        </MudButton>
+        <MudSpacer />
+        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Immediate="true" Placeholder="Search" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.Code">
+            <CellTemplate>
+                @(context.Item.Code ?? "-")
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.Name" />
+        <PropertyColumn Property="x => x.CurrentStock" Title="Current stock" />
+        <PropertyColumn Property="x => x.MinimumStockLevel" Title="Min stock level" />
+        <PropertyColumn Property="x => x.CategoryName" Title="Category" />
+        <PropertyColumn Property="x => x.IsOutOfStock" Title="Out of stock" Sortable="false" />
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-2">
+            No products found.
+        </MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="ProductViewModel" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    MudDataGrid<ProductViewModel> dataGrid = new MudDataGrid<ProductViewModel>();
+    string? searchString = null;
+
+    private async Task<GridData<ProductViewModel>> ServerReload(GridState<ProductViewModel> state)
+    {
+        var query = ProductService.GetProductsListQueryAsync();
+
+        if (!string.IsNullOrWhiteSpace(searchString))
+        {
+            query = query.Where(product =>
+               EF.Functions.ILike(product.Name, $"%{searchString}%") ||
+               EF.Functions.ILike(product.CategoryName, $"%{searchString}%") ||
+               EF.Functions.ILike(product.CurrentStock.ToString(), $"%{searchString}%") ||
+               EF.Functions.ILike(product.MinimumStockLevel.ToString(), $"%{searchString}%")
+            );
+        }
+
+        var sortDefinition = state.SortDefinitions.FirstOrDefault();
+        if (sortDefinition != null)
+        {
+            switch (sortDefinition.SortBy)
+            {
+                case nameof(ProductViewModel.Name):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.Name
+                    );
+                    break;
+                case nameof(ProductViewModel.CurrentStock):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.CurrentStock
+                    );
+                    break;
+                case nameof(ProductViewModel.MinimumStockLevel):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.MinimumStockLevel
+                    );
+                    break;
+                case nameof(ProductViewModel.CategoryName):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.CategoryName
+                    );
+                    break;
+                case nameof(ProductViewModel.IsOutOfStock):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.IsOutOfStock
+                    );
+                    break;
+            }
+        }
+
+        var totalItems = await query.CountAsync();
+
+        var pagedData = await query
+            .Skip(state.Page * state.PageSize)
+            .Take(state.PageSize)
+            .ToListAsync();
+
+        return new GridData<ProductViewModel>
+        {
+            TotalItems = totalItems,
+            Items = pagedData
+        };
+    }
+
+    private Task OnSearch(string text)
+    {
+        searchString = text;
+        return dataGrid.ReloadServerData();
+    }
+
+    private async Task CreateProduct()
+    {
+        var dialog = await DialogService.ShowAsync<CreateOrUpdateProduct>("Add new product");
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            await dataGrid.ReloadServerData();
+        }
+    }
+}

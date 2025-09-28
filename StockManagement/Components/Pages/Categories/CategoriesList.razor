@@ -8,7 +8,7 @@
 
 <PageTitle>List of categories</PageTitle>
 
-<MudText Typo="Typo.h3">Categories</MudText> 
+<MudText Typo="Typo.h4" Class="mb-4">Categories</MudText> 
 
 <MudDataGrid @ref="dataGrid" T="CategoryViewModel" ServerData="ServerReload" Filterable="false">
     <ToolBarContent>
@@ -44,7 +44,7 @@
         </TemplateColumn>
     </Columns>
     <NoRecordsContent>
-        <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-4">
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-2">
             No categories found.
         </MudText>
     </NoRecordsContent>

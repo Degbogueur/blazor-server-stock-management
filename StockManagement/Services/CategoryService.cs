@@ -12,6 +12,7 @@ public interface ICategoryService
     Task<IEnumerable<CategoryViewModel>> GetCategoriesListAsync();
     Task<CreateOrUpdateCategoryViewModel?> GetUpdateCategoryViewModelAsync(int id);
     Task<bool> UpdateCategoryAsync(CreateOrUpdateCategoryViewModel viewModel);
+    Task<IEnumerable<string>> SearchCategoriesAsync(string value, CancellationToken token, int count = 10);
 }
 
 internal class CategoryService(
@@ -97,5 +98,16 @@ internal class CategoryService(
             logger.LogError(ex, "Error while updating category with ID: {id}", viewModel.Id);
             throw;
         }        
+    }
+
+    public async Task<IEnumerable<string>> SearchCategoriesAsync(string value, CancellationToken token = default, int count = 10)
+    {
+        return await dbContext.Categories
+            .Where(c => EF.Functions.ILike(c.Name, $"%{value}%"))
+            .OrderBy(c => c.Name)
+            .Take(count)
+            .Select(c => c.Name)
+            .AsNoTracking()
+            .ToListAsync(token);
     }
 }

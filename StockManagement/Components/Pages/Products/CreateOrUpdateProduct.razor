@@ -1,0 +1,89 @@
+﻿@using StockManagement.ViewModels.Products
+
+@inject ICategoryService CategoryService
+@inject IProductService ProductService
+@inject ISnackbar Snackbar
+
+<EditForm Model="Model" OnValidSubmit="OnValidSubmit">
+    <MudDialog>
+        <DialogContent>
+            <DataAnnotationsValidator />
+            <MudTextField Label="Name *"
+                          Class="mb-4"
+                          @bind-Value="Model.Name"
+                          For="() => Model.Name"
+                          Variant="Variant.Outlined"
+                          ShrinkLabel />
+            <MudGrid>
+                <MudItem xs="9">
+                    <MudTextField Label="Code"
+                                  Class="mb-4"
+                                  @bind-Value="Model.Code"
+                                  For="() => Model.Code"
+                                  Variant="Variant.Outlined"
+                                  ShrinkLabel />
+                </MudItem>
+                <MudItem xs="3">
+                    <MudTextField Label="Minimum stock *"
+                                  InputType="InputType.Number"
+                                  Class="mb-4"
+                                  @bind-Value="Model.MinimumStockLevel"
+                                  For="() => Model.MinimumStockLevel"
+                                  Variant="Variant.Outlined"
+                                  ShrinkLabel />
+                </MudItem>
+            </MudGrid>
+            <MudAutocomplete Label="Category *"
+                             Class="mb-4"
+                             Value="Model.CategoryName"
+                             For="() => Model.CategoryName"
+                             T="string"
+                             ValueChanged="OnCategoryChanged"
+                             Variant="Variant.Outlined"
+                             ShrinkLabel
+                             SearchFunc="SearchCategory"
+                             Clearable
+                             CoerceText="false"
+                             CoerceValue="true" />
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary">Save</MudButton>
+        </DialogActions>
+    </MudDialog>
+</EditForm>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public CreateOrUpdateProductViewModel Model { get; set; } = new CreateOrUpdateProductViewModel();
+
+    private async Task OnValidSubmit()
+    {
+        var result = await ProductService.AddNewProductAsync(Model);
+
+        if (result)
+        {
+            Snackbar.Add("New product added successfully", Severity.Success);
+            MudDialog.Close();
+        }
+        else
+        { 
+            Snackbar.Add("Error adding new product", Severity.Error);
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task<IEnumerable<string>> SearchCategory(string value, CancellationToken token = default)
+    {
+        return await CategoryService.SearchCategoriesAsync(value, token);
+    }
+
+    private void OnCategoryChanged(string value)
+    {
+        Model.CategoryName = value;
+    }
+}
