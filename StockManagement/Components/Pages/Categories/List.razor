@@ -16,12 +16,13 @@
             Add new category
         </MudButton>
         <MudSpacer />
-        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Immediate="true" Placeholder="Search" Adornment="Adornment.Start"
+        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Immediate="true" Placeholder="Search"
+                      Adornment="Adornment.Start" DebounceInterval="300"
                       AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
     </ToolBarContent>
     <Columns>
-        <PropertyColumn Property="x => x.Name" Sortable="true" />
-        <PropertyColumn Property="x => x.Description" Sortable="true">
+        <PropertyColumn Property="x => x.Name" />
+        <PropertyColumn Property="x => x.Description">
             <CellTemplate>
                 @(context.Item.Description ?? "-")
             </CellTemplate>
@@ -110,11 +111,11 @@
 
     private async Task CreateCategory()
     {
-        var parameters = new DialogParameters<CreateOrUpdateCategory>
+        var parameters = new DialogParameters<CreateOrUpdate>
         {
             { x => x.Model, new CreateOrUpdateCategoryViewModel() }
         };
-        var dialog = await DialogService.ShowAsync<CreateOrUpdateCategory>("Add new category", parameters);
+        var dialog = await DialogService.ShowAsync<CreateOrUpdate>("Add new category", parameters);
         var result = await dialog.Result;
 
         if (result is not null && !result.Canceled)
@@ -138,11 +139,11 @@
             return;
         }
 
-        var parameters = new DialogParameters<CreateOrUpdateCategory>
+        var parameters = new DialogParameters<CreateOrUpdate>
         {
             { x => x.Model, updateViewModel }
         };
-        var dialog = await DialogService.ShowAsync<CreateOrUpdateCategory>("Update category", parameters);
+        var dialog = await DialogService.ShowAsync<CreateOrUpdate>("Update category", parameters);
         var result = await dialog.Result;
 
         if (result is not null && !result.Canceled)

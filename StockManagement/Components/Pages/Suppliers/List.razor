@@ -1,0 +1,212 @@
+﻿@page "/suppliers"
+
+@using StockManagement.ViewModels.Suppliers
+
+@inject ISupplierService SupplierService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>List of suppliers</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Suppliers</MudText>
+
+<MudDataGrid @ref="dataGrid" T="SupplierViewModel" ServerData="ServerReload" Filterable="false">
+    <ToolBarContent>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" @onclick="CreateSupplier">
+            Add new supplier
+        </MudButton>
+        <MudSpacer />
+        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Immediate="true" Placeholder="Search"
+                      Adornment="Adornment.Start" DebounceInterval="300"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.Name" />
+        <PropertyColumn Property="x => x.PhoneNumber" Title="Phone number" />
+        <PropertyColumn Property="x => x.Email">
+            <CellTemplate>
+                @(context.Item.Email ?? "-")
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.Address">
+            <CellTemplate>
+                @(context.Item.Address ?? "-")
+            </CellTemplate>
+        </PropertyColumn>
+        <TemplateColumn CellClass="d-flex justify-end">
+            <CellTemplate>
+                <MudIconButton Class="me-2"
+                               Variant="Variant.Outlined"
+                               Icon="@Icons.Material.Filled.Edit"
+                               Color="Color.Info"
+                               Size="Size.Small"
+                               @onclick="() => UpdateSupplier(context)" />
+                <MudIconButton Variant="Variant.Outlined"
+                               Icon="@Icons.Material.Filled.Delete"
+                               Color="Color.Error"
+                               Size="Size.Small"
+                               @onclick="() => DeleteSupplier(context)" />
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-2">
+            No suppliers found.
+        </MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="SupplierViewModel" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    MudDataGrid<SupplierViewModel> dataGrid = new MudDataGrid<SupplierViewModel>();
+    string? searchString = null;
+
+    private async Task<GridData<SupplierViewModel>> ServerReload(GridState<SupplierViewModel> state)
+    {
+        IEnumerable<SupplierViewModel> data = await SupplierService.GetSuppliersListAsync();
+
+        data = data.Where(element =>
+        {
+            if (string.IsNullOrWhiteSpace(searchString))
+                return true;
+            if (element.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (element.PhoneNumber.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (!string.IsNullOrEmpty(element.Email) &&
+                element.Email.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (!string.IsNullOrEmpty(element.Address) &&
+                element.Address.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+                return true;
+            return false;
+        }).ToArray();
+        var totalItems = data.Count();
+
+        var sortDefinition = state.SortDefinitions.FirstOrDefault();
+        if (sortDefinition != null)
+        {
+            switch (sortDefinition.SortBy)
+            {
+                case nameof(SupplierViewModel.Name):
+                    data = data.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.Name
+                    );
+                    break;
+                case nameof(SupplierViewModel.PhoneNumber):
+                    data = data.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.PhoneNumber
+                    );
+                    break;
+                case nameof(SupplierViewModel.Email):
+                    data = data.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.Email
+                    );
+                    break;
+                case nameof(SupplierViewModel.Address):
+                    data = data.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.Address
+                    );
+                    break;
+            }
+        }
+
+        var pagedData = data.Skip(state.Page * state.PageSize).Take(state.PageSize).ToArray();
+        return new GridData<SupplierViewModel>
+        {
+            TotalItems = totalItems,
+            Items = pagedData
+        };
+    }
+
+    private Task OnSearch(string text)
+    {
+        searchString = text;
+        return dataGrid.ReloadServerData();
+    }
+
+    private async Task CreateSupplier()
+    {
+        var parameters = new DialogParameters<CreateOrUpdate>
+    {
+            { x => x.Model, new CreateOrUpdateSupplierViewModel() }
+        };
+        var dialog = await DialogService.ShowAsync<CreateOrUpdate>("Add new supplier", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            await dataGrid.ReloadServerData();
+        }
+    }
+
+    private async Task UpdateSupplier(CellContext<SupplierViewModel> context)
+    {
+        var updateViewModel = new CreateOrUpdateSupplierViewModel
+        {
+            Id = context.Item.Id,
+            Name = context.Item.Name,
+            PhoneNumber = context.Item.PhoneNumber,
+            Email = context.Item.Email,
+            Address = context.Item.Address
+        };
+
+        if (updateViewModel is null)
+        {
+            Snackbar.Add("Something went wrong while trying to get data", Severity.Warning);
+            return;
+        }
+
+        var parameters = new DialogParameters<CreateOrUpdate>
+    {
+            { x => x.Model, updateViewModel }
+        };
+        var dialog = await DialogService.ShowAsync<CreateOrUpdate>("Update supplier", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            await dataGrid.ReloadServerData();
+        }
+    }
+
+    private async Task DeleteSupplier(CellContext<SupplierViewModel> context)
+    {
+        var parameters = new DialogParameters<ConfirmationDialog>
+    {
+            { x => x.ContentText, "Do you really want to remove this supplier ? This action cannot be undone." },
+            { x => x.ButtonText, "Remove" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>(
+            $"Remove: {context.Item.Name}",
+            parameters);
+
+        var result = await dialog.Result;
+
+        if (result?.Canceled != false || result.Data is not true)
+            return;
+
+        try
+        {
+            bool isDeleted = await SupplierService.DeleteSupplierAsync(context.Item.Id);
+
+            if (isDeleted)
+            {
+                Snackbar.Add($"Supplier  '{context.Item.Name}' successfully removed", Severity.Success);
+                await dataGrid.ReloadServerData();
+            }
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

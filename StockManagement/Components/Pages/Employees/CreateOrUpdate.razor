@@ -1,0 +1,102 @@
+﻿@using StockManagement.ViewModels.Employees
+
+@inject IEmployeeService EmployeeService
+@inject ISnackbar Snackbar
+
+@rendermode InteractiveServer
+
+<EditForm Model="@Model" OnValidSubmit="OnValidSubmit">
+    <MudDialog>
+        <DialogContent>
+            <DataAnnotationsValidator />
+            <MudTextField InputType="InputType.Hidden" @bind-Value="Model.Id" />
+            <MudTextField Label="First name *"
+                          Class="mb-4"
+                          @bind-Value="Model.FirstName"
+                          For="() => Model.FirstName"
+                          Variant="Variant.Outlined"
+                          ShrinkLabel />
+            <MudTextField Label="Last name *"
+                          Class="mb-4"
+                          @bind-Value="Model.LastName"
+                          For="() => Model.LastName"
+                          Variant="Variant.Outlined"
+                          ShrinkLabel />
+            <MudTextField Label="Position"
+                          Class="mb-4"
+                          @bind-Value="Model.Position"
+                          For="() => Model.Position"
+                          Variant="Variant.Outlined"
+                          ShrinkLabel />
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary">Save</MudButton>
+        </DialogActions>
+    </MudDialog>
+</EditForm>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public CreateOrUpdateEmployeeViewModel Model { get; set; }
+
+    private async Task OnValidSubmit(EditContext context)
+    {
+        if (Model.Id.HasValue && Model.Id != 0)
+            await UpdateEmployee();
+
+        else await CreateEmployee();
+    }
+
+    private async Task CreateEmployee()
+    {
+        try
+        {
+            var result = await EmployeeService.AddNewEmployeeAsync(Model);
+
+            if (result)
+            {
+                Snackbar.Add("New employee added successfully", Severity.Success);
+                MudDialog.Close();
+            }
+            else
+            {
+                Snackbar.Add("Error adding new employee", Severity.Error);
+            }
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task UpdateEmployee()
+    {
+        try
+        {
+            var result = await EmployeeService.UpdateEmployeeAsync(Model);
+
+            if (result)
+            {
+                Snackbar.Add("Employee updated successfully", Severity.Success);
+                MudDialog.Close();
+            }
+            else
+            {
+                Snackbar.Add("Error updating employee", Severity.Error);
+            }
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

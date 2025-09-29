@@ -129,11 +129,11 @@
 
     private async Task CreateProduct()
     {
-        var parameters = new DialogParameters<CreateOrUpdateProduct> 
+        var parameters = new DialogParameters<CreateOrUpdate> 
         { 
             { x => x.Model, new CreateOrUpdateProductViewModel() }
         };
-        var dialog = await DialogService.ShowAsync<CreateOrUpdateProduct>("Add new product", parameters);
+        var dialog = await DialogService.ShowAsync<CreateOrUpdate>("Add new product", parameters);
         var result = await dialog.Result;
 
         if (result is not null && !result.Canceled)
@@ -159,11 +159,11 @@
             return;
         }
 
-        var parameters = new DialogParameters<CreateOrUpdateProduct>
+        var parameters = new DialogParameters<CreateOrUpdate>
         {
             { x => x.Model, updateViewModel }
         };
-        var dialog = await DialogService.ShowAsync<CreateOrUpdateProduct>("Update product", parameters);
+        var dialog = await DialogService.ShowAsync<CreateOrUpdate>("Update product", parameters);
         var result = await dialog.Result;
 
         if (result is not null && !result.Canceled)

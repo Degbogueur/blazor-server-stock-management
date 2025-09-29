@@ -47,7 +47,7 @@ internal class CategoryService(
         {
             logger.LogError(ex, "Error while creating new category '{CategoryName}'.", viewModel.Name);
             throw new InternalServerException();
-        }        
+        }
     }
 
     public async Task<bool> DeleteCategoryAsync(int id)
@@ -121,8 +121,8 @@ internal class CategoryService(
             var categoryExists = validationResult.Any(c => c.Id == viewModel.Id);
             if (!categoryExists) throw new NotFoundException("Category not found");
 
-            var sameNameExists = validationResult.Any(p =>
-                string.Equals(p.Name, viewModel.Name, StringComparison.OrdinalIgnoreCase) && p.Id != viewModel.Id);
+            var sameNameExists = validationResult.Any(c =>
+                string.Equals(c.Name, viewModel.Name, StringComparison.OrdinalIgnoreCase) && c.Id != viewModel.Id);
             if (sameNameExists)
                 throw new UnauthorizedOperationException("A category with the same name already exists");
 
@@ -142,7 +142,7 @@ internal class CategoryService(
         {
             logger.LogError(ex, "Error while updating category with ID: {id}", viewModel.Id);
             throw new InternalServerException();
-        }        
+        }
     }
 
     public async Task<IEnumerable<string>> SearchCategoriesAsync(string value, CancellationToken token = default, int count = 10)
