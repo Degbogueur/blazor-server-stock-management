@@ -7,5 +7,5 @@ public class Supplier : BaseEntity
     public string? Email { get; set; }
     public string? Address { get; set; }
 
-    public ICollection<Operation> Operations { get; set; } = [];
+    public ICollection<StockInOperation> Operations { get; set; } = [];
 }
