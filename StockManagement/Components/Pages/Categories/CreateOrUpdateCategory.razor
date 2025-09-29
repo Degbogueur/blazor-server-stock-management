@@ -47,31 +47,45 @@
 
     private async Task CreateCategory()
     {
-        var result = await CategoryService.CreateNewCategoryAsync(Model);
+        try
+        {
+            var result = await CategoryService.CreateNewCategoryAsync(Model);
 
-        if (result)
-        {
-            Snackbar.Add("New category added successfully", Severity.Success);
-            MudDialog.Close();
+            if (result)
+            {
+                Snackbar.Add("New category added successfully", Severity.Success);
+                MudDialog.Close();
+            }
+            else
+            {
+                Snackbar.Add("Error adding new category", Severity.Error);
+            }
         }
-        else
+        catch (BaseException ex)
         {
-            Snackbar.Add("Error adding new category", Severity.Error);
+            Snackbar.Add(ex.Message, Severity.Error);
         }
     }
 
     private async Task UpdateCategory()
     {
-        var result = await CategoryService.UpdateCategoryAsync(Model);
+        try
+        {
+            var result = await CategoryService.UpdateCategoryAsync(Model);
 
-        if (result)
-        {
-            Snackbar.Add("Category updated successfully", Severity.Success);
-            MudDialog.Close();
+            if (result)
+            {
+                Snackbar.Add("Category updated successfully", Severity.Success);
+                MudDialog.Close();
+            }
+            else
+            {
+                Snackbar.Add("Error updating category", Severity.Error);
+            }
         }
-        else
+        catch (BaseException ex)
         {
-            Snackbar.Add("Error updating category", Severity.Error);
+            Snackbar.Add(ex.Message, Severity.Error);
         }
     }
 

@@ -59,7 +59,7 @@
     private IMudDialogInstance MudDialog { get; set; }
 
     [Parameter]
-    public CreateOrUpdateProductViewModel Model { get; set; } = new CreateOrUpdateProductViewModel();
+    public CreateOrUpdateProductViewModel Model { get; set; }
 
     private async Task OnValidSubmit()
     {
@@ -71,31 +71,45 @@
 
     private async Task CreateProduct()
     {
-        var result = await ProductService.AddNewProductAsync(Model);
+        try
+        {
+            var result = await ProductService.AddNewProductAsync(Model);
 
-        if (result)
-        {
-            Snackbar.Add("New product added successfully", Severity.Success);
-            MudDialog.Close();
+            if (result)
+            {
+                Snackbar.Add("New product added successfully", Severity.Success);
+                MudDialog.Close();
+            }
+            else
+            {
+                Snackbar.Add("Error adding new product", Severity.Error);
+            }
         }
-        else
+        catch (BaseException ex)
         {
-            Snackbar.Add("Error adding new product", Severity.Error);
+            Snackbar.Add(ex.Message, Severity.Error);
         }
     }
 
     private async Task UpdateProduct()
     {
-        var result = await ProductService.UpdateProductAsync(Model);
+        try
+        {
+            var result = await ProductService.UpdateProductAsync(Model);
 
-        if (result)
-        {
-            Snackbar.Add("Product updated successfully", Severity.Success);
-            MudDialog.Close();
+            if (result)
+            {
+                Snackbar.Add("Product updated successfully", Severity.Success);
+                MudDialog.Close();
+            }
+            else
+            {
+                Snackbar.Add("Error updating product", Severity.Error);
+            }
         }
-        else
+        catch (BaseException ex)
         {
-            Snackbar.Add("Error updating product", Severity.Error);
+            Snackbar.Add(ex.Message, Severity.Error);
         }
     }
 

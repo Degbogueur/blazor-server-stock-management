@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using StockManagement.Data;
+using StockManagement.Exceptions;
 using StockManagement.Mappers;
 using StockManagement.ViewModels.Products;
 
@@ -20,40 +21,70 @@ internal class ProductService(
 {
     public async Task<bool> AddNewProductAsync(CreateOrUpdateProductViewModel viewModel)
     {
-        using var transaction = await dbContext.Database.BeginTransactionAsync();
+        await using var transaction = await dbContext.Database.BeginTransactionAsync();
 
         try
         {
-            var category = await categoryService.GetCategoryByNameOrCreateAsync(viewModel.CategoryName);
+            var sameNameExists = await dbContext.Products
+                .AsNoTracking()
+                .AnyAsync(p => EF.Functions.ILike(p.Name, viewModel.Name));
+
+            if (sameNameExists)
+                throw new UnauthorizedOperationException("A product with the same name already exists");
+
+            var category = await categoryService.GetOrCreateCategoryAsync(viewModel.CategoryName);
 
             var product = viewModel.ToModel(category.Id);
 
             await dbContext.Products.AddAsync(product);
             var result = await dbContext.SaveChangesAsync();
+            
             await transaction.CommitAsync();
 
             return result > 0;
         }
+        catch (BaseException)
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            logger.LogError(ex, "Error while adding new product.");
-            throw;
-        }
-        finally
-        {
-            await transaction.DisposeAsync();
+            logger.LogError(ex, "Error while adding new product '{ProductName}'", viewModel.Name);
+            throw new InternalServerException();
         }
     }
 
     public async Task<bool> DeleteProductAsync(int id)
     {
-        var isDeleted = await dbContext.Products
-            .Where(p => p.Id == id)
-            .ExecuteUpdateAsync(p => p
-                .SetProperty(p => p.IsDeleted, true));
+        try
+        {
+            var rowsAffected = await dbContext.Products
+                .Where(p => p.Id == id &&
+                           !p.Operations.Any() &&
+                           !p.InventoryRows.Any())
+                .ExecuteUpdateAsync(p => p
+                    .SetProperty(p => p.IsDeleted, true)
+                    .SetProperty(p => p.DeletedOn, DateTime.UtcNow));
 
-        return isDeleted > 0;
+            if (rowsAffected > 0) return true;
+
+            var productExists = await dbContext.Products.IgnoreQueryFilters().AnyAsync(p => p.Id == id);
+            if (!productExists) throw new NotFoundException("Product not found");
+
+            throw new UnauthorizedOperationException(
+                "This product cannot be deleted: it has associated operation entries");
+        }
+        catch (BaseException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error while removing product with ID: {id}", id);
+            throw new InternalServerException();
+        }
     }
 
     public IQueryable<ProductViewModel> GetProductsListQueryAsync()
@@ -75,13 +106,27 @@ internal class ProductService(
 
     public async Task<bool> UpdateProductAsync(CreateOrUpdateProductViewModel viewModel)
     {
-        using var transaction = await dbContext.Database.BeginTransactionAsync();
+        await using var transaction = await dbContext.Database.BeginTransactionAsync();
 
         try
         {
-            var category = await categoryService.GetCategoryByNameOrCreateAsync(viewModel.CategoryName);
+            var validationResult = await dbContext.Products
+                .Where(p => p.Id == viewModel.Id || EF.Functions.ILike(p.Name, viewModel.Name))
+                .Select(p => new { p.Id, p.Name })
+                .AsNoTracking()
+                .ToListAsync();
 
-            var isUpdated = await dbContext.Products
+            var productExists = validationResult.Any(p => p.Id == viewModel.Id);
+            if (!productExists) throw new NotFoundException("Product not found");
+
+            var sameNameExists = validationResult.Any(p =>
+                string.Equals(p.Name, viewModel.Name, StringComparison.OrdinalIgnoreCase) && p.Id != viewModel.Id);
+            if (sameNameExists)
+                throw new UnauthorizedOperationException("A product with the same name already exists");
+
+            var category = await categoryService.GetOrCreateCategoryAsync(viewModel.CategoryName);
+
+            var rowsAffected = await dbContext.Products
                 .Where(p => p.Id == viewModel.Id)
                 .ExecuteUpdateAsync(p => p
                     .SetProperty(p => p.Name, viewModel.Name)
@@ -90,17 +135,18 @@ internal class ProductService(
                     .SetProperty(p => p.CategoryId, category.Id));
 
             await transaction.CommitAsync();
-            return isUpdated > 0;
+            return rowsAffected > 0;
+        }
+        catch (BaseException)
+        {
+            await transaction.RollbackAsync();
+            throw;
         }
         catch (Exception ex)
         {
             await transaction.RollbackAsync();
-            logger.LogError(ex, "Error while updating product.");
-            throw;
-        }
-        finally
-        {
-            await transaction.DisposeAsync();
+            logger.LogError(ex, "Error while updating product with ID: {id}", viewModel.Id);
+            throw new InternalServerException();
         }
     }
 }

@@ -129,7 +129,11 @@
 
     private async Task CreateProduct()
     {
-        var dialog = await DialogService.ShowAsync<CreateOrUpdateProduct>("Add new product");
+        var parameters = new DialogParameters<CreateOrUpdateProduct> 
+        { 
+            { x => x.Model, new CreateOrUpdateProductViewModel() }
+        };
+        var dialog = await DialogService.ShowAsync<CreateOrUpdateProduct>("Add new product", parameters);
         var result = await dialog.Result;
 
         if (result is not null && !result.Canceled)
@@ -151,7 +155,7 @@
 
         if (updateViewModel is null)
         {
-            Snackbar.Add("Something went wrong while trying to get data", Severity.Error);
+            Snackbar.Add("Something went wrong while trying to get data", Severity.Warning);
             return;
         }
 
@@ -172,29 +176,33 @@
     {
         var parameters = new DialogParameters<ConfirmationDialog>
         {
-            { x => x.ContentText, "Do you really want to delete this record ? This process cannot be undone." },
+            { x => x.ContentText, "Do you really want to delete this product ? This action cannot be undone." },
             { x => x.ButtonText, "Delete" },
             { x => x.Color, Color.Error }
         };
-        var dialog = await DialogService.ShowAsync<ConfirmationDialog>($"Delete: {context.Item.Name}", parameters);
+
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>(
+            $"Delete: {context.Item.Name}",
+            parameters);
+
         var result = await dialog.Result;
 
-        if (result is not null && !result.Canceled)
+        if (result?.Canceled != false || result.Data is not true)
+            return;
+
+        try
         {
-            bool isConfirmed = (bool)(result.Data ?? false);
-            if (isConfirmed)
+            bool isDeleted = await ProductService.DeleteProductAsync(context.Item.Id);
+
+            if (isDeleted)
             {
-                bool isDeleted = await ProductService.DeleteProductAsync(context.Item.Id);
-                if (isDeleted)
-                {
-                    Snackbar.Add("Product successfully removed", Severity.Success);
-                    await dataGrid.ReloadServerData();
-                }
-                else
-                {
-                    Snackbar.Add($"Error removing the product {context.Item.Name}", Severity.Error);
-                }
+                Snackbar.Add($"Product '{context.Item.Name}' successfully deleted", Severity.Success);
+                await dataGrid.ReloadServerData();
             }
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
         }
     }
 }
