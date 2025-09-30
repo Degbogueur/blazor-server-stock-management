@@ -2,6 +2,7 @@
 using StockManagement.Data;
 using StockManagement.Exceptions;
 using StockManagement.Mappers;
+using StockManagement.ViewModels;
 using StockManagement.ViewModels.Products;
 
 namespace StockManagement.Services;
@@ -11,6 +12,7 @@ public interface IProductService
     Task<bool> AddNewProductAsync(CreateOrUpdateProductViewModel viewModel);
     Task<bool> DeleteProductAsync(int id);
     IQueryable<ProductViewModel> GetProductsListQueryAsync();
+    Task<List<SearchProductResultViewModel>> SearchProductsAsync(string term, CancellationToken token, int maxResults = 10);
     Task<bool> UpdateProductAsync(CreateOrUpdateProductViewModel viewModel);
 }
 
@@ -102,6 +104,18 @@ internal class ProductService(
             })
             .AsNoTracking()
             .AsQueryable();
+    }
+
+    public async Task<List<SearchProductResultViewModel>> SearchProductsAsync(
+        string term, CancellationToken token = default, int maxResults = 10)
+    {
+        return await dbContext.Products
+            .Where(p => EF.Functions.ILike(p.Name, $"%{term}%"))
+            .OrderBy(p => p.Name)
+            .Take(maxResults)
+            .Select(p => new SearchProductResultViewModel { Id = p.Id, Text = p.Name, Quantity = p.CurrentStock })
+            .AsNoTracking()
+            .ToListAsync(token);
     }
 
     public async Task<bool> UpdateProductAsync(CreateOrUpdateProductViewModel viewModel)

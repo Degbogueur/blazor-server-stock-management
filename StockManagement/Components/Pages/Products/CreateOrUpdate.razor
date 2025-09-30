@@ -33,11 +33,11 @@
                                   ShrinkLabel />
                 </MudItem>
             </MudGrid>
-            <MudAutocomplete Label="Category *"
+            <MudAutocomplete T="string"
+                             Label="Category *"
                              Class="mb-4"
                              Value="Model.CategoryName"
-                             For="() => Model.CategoryName"
-                             T="string"
+                             For="() => Model.CategoryName"                             
                              ValueChanged="OnCategoryChanged"
                              Variant="Variant.Outlined"
                              ShrinkLabel
@@ -117,7 +117,7 @@
 
     private async Task<IEnumerable<string>> SearchCategory(string value, CancellationToken token = default)
     {
-        return await CategoryService.SearchCategoriesAsync(value, token);
+        return await CategoryService.SearchCategorieNamesAsync(value, token);
     }
 
     private void OnCategoryChanged(string value)

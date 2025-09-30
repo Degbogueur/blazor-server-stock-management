@@ -2,6 +2,7 @@
 using StockManagement.Data;
 using StockManagement.Exceptions;
 using StockManagement.Mappers;
+using StockManagement.ViewModels;
 using StockManagement.ViewModels.Suppliers;
 
 namespace StockManagement.Services;
@@ -11,7 +12,7 @@ public interface ISupplierService
     Task<bool> AddNewSupplierAsync(CreateOrUpdateSupplierViewModel viewModel);
     Task<bool> DeleteSupplierAsync(int id);
     Task<IEnumerable<SupplierViewModel>> GetSuppliersListAsync();
-    Task<IEnumerable<string>> SearchSuppliersAsync(string value, CancellationToken token, int count = 10);
+    Task<List<SearchResultViewModel>> SearchSuppliersAsync(string term, CancellationToken token, int maxResults = 10);
     Task<bool> UpdateSupplierAsync(CreateOrUpdateSupplierViewModel viewModel);
 }
 
@@ -94,13 +95,14 @@ internal class SupplierService(
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<string>> SearchSuppliersAsync(string value, CancellationToken token, int count = 10)
+    public async Task<List<SearchResultViewModel>> SearchSuppliersAsync(
+        string term, CancellationToken token = default, int maxResults = 10)
     {
         return await dbContext.Suppliers
-            .Where(s => EF.Functions.ILike(s.Name, $"%{value}%"))
+            .Where(s => EF.Functions.ILike(s.Name, $"%{term}%"))
             .OrderBy(s => s.Name)
-            .Take(count)
-            .Select(s => s.Name)
+            .Take(maxResults)
+            .Select(s => new SearchResultViewModel { Id = s.Id, Text = s.Name })
             .AsNoTracking()
             .ToListAsync(token);
     }

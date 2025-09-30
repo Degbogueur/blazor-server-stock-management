@@ -14,7 +14,7 @@ public interface ICategoryService
     Task<IEnumerable<CategoryViewModel>> GetCategoriesListAsync();
     Task<Category> GetOrCreateCategoryAsync(string name);
     Task<bool> UpdateCategoryAsync(CreateOrUpdateCategoryViewModel viewModel);
-    Task<IEnumerable<string>> SearchCategoriesAsync(string value, CancellationToken token, int count = 10);
+    Task<IEnumerable<string>> SearchCategorieNamesAsync(string term, CancellationToken token, int maxResults = 10);
 }
 
 internal class CategoryService(
@@ -145,12 +145,13 @@ internal class CategoryService(
         }
     }
 
-    public async Task<IEnumerable<string>> SearchCategoriesAsync(string value, CancellationToken token = default, int count = 10)
+    public async Task<IEnumerable<string>> SearchCategorieNamesAsync(
+        string term, CancellationToken token = default, int maxResults = 10)
     {
         return await dbContext.Categories
-            .Where(c => EF.Functions.ILike(c.Name, $"%{value}%"))
+            .Where(c => EF.Functions.ILike(c.Name, $"%{term}%"))
             .OrderBy(c => c.Name)
-            .Take(count)
+            .Take(maxResults)
             .Select(c => c.Name)
             .AsNoTracking()
             .ToListAsync(token);

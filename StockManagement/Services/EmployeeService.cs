@@ -2,6 +2,7 @@
 using StockManagement.Data;
 using StockManagement.Exceptions;
 using StockManagement.Mappers;
+using StockManagement.ViewModels;
 using StockManagement.ViewModels.Employees;
 
 namespace StockManagement.Services;
@@ -11,7 +12,7 @@ public interface IEmployeeService
     Task<bool> AddNewEmployeeAsync(CreateOrUpdateEmployeeViewModel viewModel);
     Task<bool> DeleteEmployeeAsync(int id);
     Task<IEnumerable<EmployeeViewModel>> GetEmployeesListAsync();
-    Task<IEnumerable<string>> SearchEmployeesAsync(string value, CancellationToken token, int count = 10);
+    Task<IEnumerable<SearchResultViewModel>> SearchEmployeesAsync(string term, CancellationToken token, int maxResults = 10);
     Task<bool> UpdateEmployeeAsync(CreateOrUpdateEmployeeViewModel viewModel);
 
 }
@@ -98,16 +99,17 @@ internal class EmployeeService(
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<string>> SearchEmployeesAsync(string value, CancellationToken token, int count = 10)
+    public async Task<IEnumerable<SearchResultViewModel>> SearchEmployeesAsync(
+        string term, CancellationToken token = default, int maxResults = 10)
     {
         return await dbContext.Employees
-            .Where(e => EF.Functions.ILike(e.FirstName + " " + e.LastName, $"%{value}%"))
+            .Where(e => EF.Functions.ILike(e.FirstName + " " + e.LastName, $"%{term}%"))
             .OrderBy(e => e.FirstName)
                 .ThenBy(e => e.LastName)
-            .Take(count)
-            .Select(e => e.FullName)
+            .Take(maxResults)
+            .Select(e => new SearchResultViewModel { Id = e.Id, Text = e.FullName })
             .AsNoTracking()
-            .ToListAsync();
+            .ToListAsync(token);
     }
 
     public async Task<bool> UpdateEmployeeAsync(CreateOrUpdateEmployeeViewModel viewModel)
