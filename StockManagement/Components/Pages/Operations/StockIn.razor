@@ -1,6 +1,5 @@
 ﻿@page "/stock-in"
 
-@using StockManagement.Services
 @using StockManagement.ViewModels
 @using StockManagement.ViewModels.Operations
 
@@ -71,8 +70,9 @@
                 </MudStack>
                 @if (selectedProduct != null)
                 {
-                    <MudChip T="string" Variant="Variant.Outlined" Color="Color.Info">
-                        Stock available : @selectedProduct.Quantity
+                    var availableStock = GetCurrentStock();
+                    <MudChip T="string" Variant="Variant.Outlined" Color="@(availableStock > 0 ? Color.Info : Color.Error)">
+                        Current stock : @availableStock units
                     </MudChip>
                 }
             </MudItem>
@@ -289,6 +289,17 @@
         }
 
         return result;
+    }
+
+    private int GetCurrentStock()
+    {
+        if (selectedProduct == null) return 0;
+
+        var pendingSum = pendingOperations
+            .Where(o => o.ProductId == selectedProduct.Id)
+            .Sum(o => o.Quantity);
+
+        return selectedProduct.Quantity + pendingSum;
     }
 
     private bool CanAddOperation()

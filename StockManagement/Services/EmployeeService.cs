@@ -12,7 +12,7 @@ public interface IEmployeeService
     Task<bool> AddNewEmployeeAsync(CreateOrUpdateEmployeeViewModel viewModel);
     Task<bool> DeleteEmployeeAsync(int id);
     Task<IEnumerable<EmployeeViewModel>> GetEmployeesListAsync();
-    Task<IEnumerable<SearchResultViewModel>> SearchEmployeesAsync(string term, CancellationToken token, int maxResults = 10);
+    Task<List<SearchResultViewModel>> SearchEmployeesAsync(string term, CancellationToken token, int maxResults = 10);
     Task<bool> UpdateEmployeeAsync(CreateOrUpdateEmployeeViewModel viewModel);
 
 }
@@ -99,7 +99,7 @@ internal class EmployeeService(
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<SearchResultViewModel>> SearchEmployeesAsync(
+    public async Task<List<SearchResultViewModel>> SearchEmployeesAsync(
         string term, CancellationToken token = default, int maxResults = 10)
     {
         return await dbContext.Employees
