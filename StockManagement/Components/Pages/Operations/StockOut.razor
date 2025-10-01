@@ -430,11 +430,11 @@
         isSaving = true;
 
         var parameters = new DialogParameters<ConfirmationDialog>
-    {
-        { x => x.ContentText, "Do you really want to save all operations ?" },
-        { x => x.ButtonText, "Confirm" },
-        { x => x.Color, Color.Success }
-    };
+        {
+            { x => x.ContentText, "Do you really want to save all operations ?" },
+            { x => x.ButtonText, "Confirm" },
+            { x => x.Color, Color.Success }
+        };
         var dialog = await DialogService.ShowAsync<ConfirmationDialog>("Save operations", parameters);
         var result = await dialog.Result;
 
@@ -446,9 +446,19 @@
 
         try
         {
-            await OperationService.SaveStockOutOperationsAsync(pendingOperations);
+            var saveResult = await OperationService.SaveStockOutOperationsAsync(pendingOperations);
 
             Snackbar.Add($"{pendingOperationsCount} operation{(pendingOperations.Count > 1 ? "s" : "")} saved successfully", Severity.Success);
+
+            if (saveResult.Alerts.Count != 0)
+            {
+                var alertParameters = new DialogParameters<StockAlertDialog>
+                {
+                    { x => x.Alerts, saveResult.Alerts }
+                };
+                await DialogService.ShowAsync<StockAlertDialog>("Stock Alerts", alertParameters);
+            }
+
             pendingOperations.Clear();
             await ResetForm();
         }

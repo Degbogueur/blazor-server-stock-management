@@ -1,0 +1,47 @@
+﻿@using StockManagement.ViewModels.Results
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Class="mr-2" />
+            Stock Alerts
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudText Class="mb-3">Operations saved successfully, but some products require attention:</MudText>
+        <MudList T="StockAlertInfo" Dense="true">
+            @foreach (var alert in Alerts)
+            {
+            <MudListItem Icon="@GetAlertIcon(alert)" IconColor="@GetAlertColor(alert)">
+                <MudText>
+                    <strong>@alert.ProductName</strong>:
+                    @if (alert.IsOutOfStock)
+                        {
+                    <span>OUT OF STOCK (@alert.NewStock units)</span>
+                        }
+                        else
+                        {
+                    <span>Low stock - @alert.NewStock / @alert.MinimumStockLevel units</span>
+                        }
+                </MudText>
+            </MudListItem>
+            }
+        </MudList>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="Close">OK</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public List<StockAlertInfo> Alerts { get; set; } = new();
+
+    private string GetAlertIcon(StockAlertInfo alert) =>
+        alert.IsOutOfStock ? Icons.Material.Filled.ErrorOutline : Icons.Material.Filled.Warning;
+
+    private Color GetAlertColor(StockAlertInfo alert) =>
+        alert.IsOutOfStock ? Color.Error : Color.Warning;
+
+    private void Close() => MudDialog.Close();
+}
