@@ -333,8 +333,6 @@
         });
 
         ResetUnlockedFields();
-
-        //Snackbar.Add("Operation added to list", Severity.Success);
     }
 
     private void ResetUnlockedFields()
@@ -375,14 +373,11 @@
         operationDate = DateTime.Now;
 
         currentOperation = new StockInOperationViewModel { Date = DateTime.Now };
-
-        Snackbar.Add("Form reset", Severity.Info);
     }
 
     private void RemoveOperation(StockInOperationViewModel operation)
     {
         pendingOperations.Remove(operation);
-        //Snackbar.Add("Operation removed from list", Severity.Info);
     }
 
     private void ClearAll()

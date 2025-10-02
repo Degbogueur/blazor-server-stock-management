@@ -1,37 +1,124 @@
 ﻿@using StockManagement.ViewModels.Results
 
-<MudDialog>
+<MudDialog Class="stock-alert-dialog">
     <TitleContent>
-        <MudText Typo="Typo.h6">
-            <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Class="mr-2" />
-            Stock Alerts
-        </MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="pa-2">
+            <div style="border-radius: 12px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;">
+                <MudIcon Icon="@Icons.Material.Filled.Warning" Color="Color.Warning" Size="Size.Large" />
+            </div>
+            <MudText Typo="Typo.h5" Style="font-weight: 600; line-height: 1.2;">
+                Stock Alerts
+            </MudText>
+        </MudStack>
     </TitleContent>
+
     <DialogContent>
-        <MudText Class="mb-3">Operations saved successfully, but some products require attention:</MudText>
-        <MudList T="StockAlertInfo" Dense="true">
+        <MudText Class="mb-4" Typo="Typo.body2" Style="line-height: 1.6;">
+            Operations saved successfully, but the following products need attention.
+        </MudText>
+
+        <MudStack Spacing="2">
             @foreach (var alert in Alerts)
             {
-            <MudListItem Icon="@GetAlertIcon(alert)" IconColor="@GetAlertColor(alert)">
-                <MudText>
-                    <strong>@alert.ProductName</strong>:
-                    @if (alert.IsOutOfStock)
-                        {
-                    <span>OUT OF STOCK (@alert.NewStock units)</span>
-                        }
-                        else
-                        {
-                    <span>Low stock - @alert.NewStock / @alert.MinimumStockLevel units</span>
-                        }
-                </MudText>
-            </MudListItem>
+                <MudPaper Elevation="1" Class="alert-card" Style="border-radius: 8px; padding: 16px; border-left: 3px solid var(--mud-palette-divider);">
+                    <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
+                        <!-- Status Icon -->
+                        <div style="background: var(--mud-palette-action-disabled); border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <MudIcon Icon="@GetAlertIcon(alert)"
+                                     Color="@GetAlertColor(alert)"
+                                     Size="Size.Medium" />
+                        </div>
+
+                        <!-- Product Info -->
+                        <MudStack Spacing="1" Style="flex: 1;">
+                            <MudText Typo="Typo.body1" Style="font-weight: 600; font-size: 0.9375rem;">
+                                @alert.ProductName
+                            </MudText>
+
+                            @if (alert.IsOutOfStock)
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Text"
+                                             Style="height: 24px; font-weight: 600; font-size: 0.75rem; padding: 0 8px;">
+                                        OUT OF STOCK
+                                    </MudChip>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Style="font-size: 0.875rem;">
+                                        Current: @alert.NewStock units
+                                    </MudText>
+                                </MudStack>
+                            }
+                            else
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Text"
+                                             Style="height: 24px; font-weight: 600; font-size: 0.75rem; padding: 0 8px;">
+                                        LOW STOCK
+                                    </MudChip>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Style="font-size: 0.875rem;">
+                                        <strong>@alert.NewStock</strong> / @alert.MinimumStockLevel units
+                                    </MudText>
+                                </MudStack>
+                            }
+                        </MudStack>
+
+                        <!-- Stock Level Indicator -->
+                        <MudStack Spacing="0" Style="min-width: 70px; text-align: right;">
+                            <MudText Typo="Typo.h6" Style="font-weight: 700;">
+                                @alert.NewStock
+                            </MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Style="font-size: 0.7rem;">
+                                @(alert.IsOutOfStock ? "UNITS" : $"MIN: {alert.MinimumStockLevel}")
+                            </MudText>
+                        </MudStack>
+                    </MudStack>
+
+                    <!-- Progress Bar for Low Stock -->
+                    @if (!alert.IsOutOfStock && alert.MinimumStockLevel > 0)
+                    {
+                        var percentage = (double)alert.NewStock / alert.MinimumStockLevel * 100;
+                        <MudProgressLinear Color="@GetAlertColor(alert)"
+                                           Value="@percentage"
+                                           Size="Size.Small"
+                                           Class="mt-3"
+                                           Style="border-radius: 4px;" />
+                    }
+                </MudPaper>
             }
-        </MudList>
+        </MudStack>
     </DialogContent>
+
     <DialogActions>
-        <MudButton Color="Color.Primary" OnClick="Close">OK</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="Close"
+                   FullWidth="true"
+                   Size="Size.Large"
+                   Style="text-transform: none; font-weight: 600; border-radius: 8px;">
+            Got it, thanks!
+        </MudButton>
     </DialogActions>
 </MudDialog>
+
+<style>
+    .stock-alert-dialog .mud-dialog {
+        max-width: 600px;
+        border-radius: 16px !important;
+    }
+
+    .stock-alert-dialog .mud-dialog-title {
+        padding: 24px 24px 16px 24px;
+    }
+
+    .stock-alert-dialog .mud-dialog-content {
+        padding: 0 24px 24px 24px;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+
+    .alert-card {
+        transition: box-shadow 0.2s ease;
+    }
+</style>
 
 @code {
     [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = null!;
