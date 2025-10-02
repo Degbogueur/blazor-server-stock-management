@@ -6,6 +6,7 @@
 @inject IProductService ProductService
 @inject IEmployeeService EmployeeService
 @inject IOperationService OperationService
+@inject INotificationService NotificationService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -105,6 +106,7 @@
                                  Label="Quantity"
                                  Variant="Variant.Outlined"
                                  Required="true"
+                                 Immediate="true"
                                  Validation="new Func<int, string?>(ValidateQuantity)"
                                  For="() => currentOperation.Quantity" />                
             </MudItem>
@@ -245,8 +247,6 @@
             currentOperation.ProductId = 0;
             currentOperation.ProductName = string.Empty;
         }
-
-        //await form.Validate();
     }
 
     private void OnEmployeeSelected(SearchResultViewModel? employee)
@@ -365,8 +365,6 @@
         });
 
         ResetUnlockedFields();
-
-        //Snackbar.Add("Operation added to list", Severity.Success);
     }
 
     private void ResetUnlockedFields()
@@ -407,15 +405,12 @@
         operationDate = DateTime.Now;
 
         currentOperation = new StockOutOperationViewModel { Date = DateTime.Now };
-
-        Snackbar.Add("Form reset", Severity.Info);
     }
 
     private async Task RemoveOperation(StockOutOperationViewModel operation)
     {
         pendingOperations.Remove(operation);
         await form.Validate();
-        //Snackbar.Add("Operation removed from list", Severity.Info);
     }
 
     private void ClearAll()
@@ -452,6 +447,8 @@
 
             if (saveResult.Alerts.Count != 0)
             {
+                await NotificationService.AddStockAlertsAsync(saveResult.Alerts);
+
                 var alertParameters = new DialogParameters<StockAlertDialog>
                 {
                     { x => x.Alerts, saveResult.Alerts }
