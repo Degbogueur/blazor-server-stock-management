@@ -62,7 +62,7 @@
 
     private async Task<GridData<ProductViewModel>> ServerReload(GridState<ProductViewModel> state)
     {
-        var query = ProductService.GetProductsListQueryAsync();
+        var query = ProductService.GetProductsListQuery();
 
         if (!string.IsNullOrWhiteSpace(searchString))
         {

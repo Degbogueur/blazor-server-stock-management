@@ -11,7 +11,7 @@ public interface IProductService
 {
     Task<bool> AddNewProductAsync(CreateOrUpdateProductViewModel viewModel);
     Task<bool> DeleteProductAsync(int id);
-    IQueryable<ProductViewModel> GetProductsListQueryAsync();
+    IQueryable<ProductViewModel> GetProductsListQuery();
     Task<List<SearchProductResultViewModel>> SearchProductsAsync(string term, CancellationToken token, int maxResults = 10);
     Task<bool> UpdateProductAsync(CreateOrUpdateProductViewModel viewModel);
 }
@@ -89,7 +89,7 @@ internal class ProductService(
         }
     }
 
-    public IQueryable<ProductViewModel> GetProductsListQueryAsync()
+    public IQueryable<ProductViewModel> GetProductsListQuery()
     {
         return dbContext.Products
             .OrderBy(p => p.Id)
