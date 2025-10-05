@@ -12,5 +12,5 @@ public class InventoryRow : AuditableEntity
     public int CountedQuantity { get; set; }
 
     [NotMapped]
-    public int Variation => CountedQuantity - ExpectedQuantity;
+    public int Variance => CountedQuantity - ExpectedQuantity;
 }
