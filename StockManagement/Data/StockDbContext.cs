@@ -1,16 +1,19 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+using StockManagement.Extensions;
 using StockManagement.Models;
 using System.Reflection;
 
 namespace StockManagement.Data;
 
-public class StockDbContext : DbContext
+public class StockDbContext : IdentityDbContext<ApplicationUser>
 {
-    public StockDbContext(DbContextOptions options) : base(options) { }
+    public StockDbContext(DbContextOptions<StockDbContext> options) : base(options) { }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder.ConfigureIdentitySchema();
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
     }
 

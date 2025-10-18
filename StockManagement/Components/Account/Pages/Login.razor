@@ -1,0 +1,185 @@
+﻿@page "/Account/Login"
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Identity
+@using StockManagement.Models
+
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+@inject ILogger<Login> Logger
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Log in</PageTitle>
+
+<MudPaper Elevation="4" Class="pa-8" Style="max-width: 500px; margin: auto;">
+    <MudText Typo="Typo.h4" Align="Align.Center" GutterBottom="true">
+        Log in
+    </MudText>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
+    }
+
+    <EditForm Model="Input" method="post" OnValidSubmit="LoginUser" FormName="login">
+        <DataAnnotationsValidator />
+
+        <MudStaticTextField @bind-Value="@Input.Email"
+                            Label="Email"
+                            ShrinkLabel="true"
+                            Variant="Variant.Outlined"
+                            InputType="InputType.Email"
+                            Required="true"
+                            For="@(() => Input.Email)"
+                            Adornment="Adornment.End"
+                            AdornmentIcon="@Icons.Material.Outlined.Email"
+                            Class="mb-4" />
+
+        <MudStaticTextField @bind-Value="@Input.Password"
+                            Label="Password"
+                            ShrinkLabel="true"
+                            Variant="Variant.Outlined"
+                            InputType="InputType.Password"
+                            Required="true"
+                            For="@(() => Input.Password)"
+                            Adornment="Adornment.End"
+                            AdornmentIcon="@Icons.Material.Outlined.VisibilityOff"
+                            AdornmentClickFunction="showPassword"
+                            Class="mb-4" />
+
+        <MudStaticCheckBox @bind-Value="@Input.RememberMe"
+                           Label="Remember me"
+                           Color="Color.Primary"
+                           Class="mb-4">
+        </MudStaticCheckBox>
+
+        <MudButton ButtonType="ButtonType.Submit"
+                   Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   FullWidth="true"
+                   Size="Size.Large"
+                   Class="mb-4">
+            Log in
+        </MudButton>
+
+        <MudDivider Class="my-4" />
+
+        <MudStack Spacing="2" AlignItems="AlignItems.Center">
+            <MudLink Href="Account/ForgotPassword" Typo="Typo.body2">
+                Forgot your password?
+            </MudLink>
+            <MudLink Href="Account/ResendEmailConfirmation" Typo="Typo.body2">
+                Resend email confirmation
+            </MudLink>
+        </MudStack>
+    </EditForm>
+</MudPaper>
+
+@code {
+    private string? errorMessage;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (HttpMethods.IsGet(HttpContext.Request.Method))
+        {
+            await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
+        }
+    }
+
+    public async Task LoginUser()
+    {
+        // First, check if the user exists and is active
+        var user = await UserManager.FindByEmailAsync(Input.Email);
+
+        if (user == null)
+        {
+            errorMessage = "Error: Invalid login attempt.";
+            return;
+        }
+
+        // Check if the user is active
+        if (!user.IsActive)
+        {
+            errorMessage = "Error: Your account has been deactivated. Please contact support.";
+            Logger.LogWarning("Inactive user attempted to log in: {Email}", Input.Email);
+            return;
+        }
+
+        // Proceed with password sign-in
+        var result = await SignInManager.PasswordSignInAsync(
+            Input.Email,
+            Input.Password,
+            Input.RememberMe,
+            lockoutOnFailure: false
+        );
+
+        if (result.Succeeded)
+        {
+            Logger.LogInformation("User logged in: {Email}", Input.Email);
+            RedirectManager.RedirectTo(ReturnUrl);
+        }
+        else if (result.RequiresTwoFactor)
+        {
+            RedirectManager.RedirectTo(
+                "Account/LoginWith2fa",
+                new()
+                {
+                    ["returnUrl"] = ReturnUrl,
+                    ["rememberMe"] = Input.RememberMe
+                }
+            );
+        }
+        else if (result.IsLockedOut)
+        {
+            Logger.LogWarning("User account locked out: {Email}", Input.Email);
+            RedirectManager.RedirectTo("Account/Lockout");
+        }
+        else
+        {
+            errorMessage = "Error: Invalid login attempt.";
+        }
+    }
+
+
+    private sealed class InputModel
+    {
+        [Required]
+        [EmailAddress]
+        public string Email { get; set; } = "";
+
+        [Required]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = "";
+
+        [Display(Name = "Remember me?")]
+        public bool RememberMe { get; set; }
+    }
+}
+
+<script>
+   let timeoutId;
+
+   function showPassword(inputElement, button) {
+       if (inputElement.type === 'password') {
+           inputElement.type = 'text';
+           clearTimeout(timeoutId);
+           timeoutId = setTimeout(function () {
+               inputElement.type = 'password';
+           }, 5000);
+       } else {
+           inputElement.type = 'password';
+           clearTimeout(timeoutId);
+       }
+   }
+</script>

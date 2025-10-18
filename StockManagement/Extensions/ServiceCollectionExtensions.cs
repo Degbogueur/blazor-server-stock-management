@@ -1,5 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using StockManagement.Components.Account;
 using StockManagement.Data;
+using StockManagement.Models;
 using StockManagement.Services;
 
 namespace StockManagement.Extensions;
@@ -28,5 +32,33 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IOperationService, OperationService>();
         services.AddScoped<IProductService, ProductService>();
         services.AddScoped<ISupplierService, SupplierService>();
+    }
+
+    public static void AddAuthenticationServices(this IServiceCollection services)
+    {
+        services.AddCascadingAuthenticationState();
+
+        services.AddScoped<IdentityUserAccessor>();
+
+        services.AddScoped<IdentityRedirectManager>();
+
+        services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
+
+        services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+        {
+            options.SignIn.RequireConfirmedAccount = true;
+        })
+        .AddEntityFrameworkStores<StockDbContext>()
+        .AddDefaultTokenProviders();
+    }
+
+    public static void AddSettings(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<AdminUserCredentials>(configuration.GetSection("AdminUserCredentials"));
+    }
+
+    public static void AddClaimsPrincipalFactory(this IServiceCollection services)
+    {
+        services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, ApplicationUserClaimsPrincipalFactory>();
     }
 }

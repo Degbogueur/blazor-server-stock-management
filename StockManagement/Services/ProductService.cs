@@ -35,6 +35,7 @@ internal class ProductService(
                 throw new UnauthorizedOperationException("A product with the same name already exists");
 
             var category = await categoryService.GetOrCreateCategoryAsync(viewModel.CategoryName);
+            await dbContext.SaveChangesAsync();
 
             var product = viewModel.ToModel(category.Id);
 
