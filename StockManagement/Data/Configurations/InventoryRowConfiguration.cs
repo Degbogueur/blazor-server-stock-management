@@ -1,13 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Builders;
+﻿using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using StockManagement.Models;
 
 namespace StockManagement.Data.Configurations;
 
-public class InventoryRowConfiguration : IEntityTypeConfiguration<InventoryRow>
+public class InventoryRowConfiguration : AuditableEntityConfiguration<InventoryRow>
 {
-    public void Configure(EntityTypeBuilder<InventoryRow> builder)
+    public override void Configure(EntityTypeBuilder<InventoryRow> builder)
     {
-        builder.HasQueryFilter(r => !r.IsDeleted);
+        base.Configure(builder);
     }
 }

@@ -4,11 +4,11 @@ using StockManagement.Models;
 
 namespace StockManagement.Data.Configurations;
 
-public class OperationConfiguration : IEntityTypeConfiguration<Operation>
+public class OperationConfiguration : AuditableEntityConfiguration<Operation>
 {
-    public void Configure(EntityTypeBuilder<Operation> builder)
+    public override void Configure(EntityTypeBuilder<Operation> builder)
     {
-        builder.HasQueryFilter(o => !o.IsDeleted);
+        base.Configure(builder);
 
         builder.Property(o => o.Type).HasConversion<string>();
 

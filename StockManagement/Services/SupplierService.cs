@@ -53,20 +53,21 @@ internal class SupplierService(
     {
         try
         {
-            var rowsAffected = await dbContext.Suppliers
-                .Where(s => s.Id == id &&
-                           !s.Operations.Any())
-                .ExecuteUpdateAsync(s => s
-                .SetProperty(s => s.IsDeleted, true)
-                .SetProperty(s => s.DeletedOn, DateTime.UtcNow));
+            var supplier = await dbContext.Suppliers
+                .Include(s => s.Operations)
+                .FirstOrDefaultAsync(s => s.Id == id);
 
-            if (rowsAffected > 0) return true;
+            if (supplier == null)
+                throw new NotFoundException("Supplier not found");
 
-            var supplierExists = await dbContext.Suppliers.IgnoreQueryFilters().AnyAsync(s => s.Id == id);
-            if (!supplierExists) throw new NotFoundException("Supplier not found");
+            if (supplier.Operations.Count != 0)
+                throw new UnauthorizedOperationException(
+                    "This supplier cannot be deleted: they have associated operation entries");
 
-            throw new UnauthorizedOperationException(
-                "This supplier cannot be deleted: they have associated operation entries");
+            dbContext.Suppliers.Remove(supplier);
+            var result = await dbContext.SaveChangesAsync();
+
+            return result > 0;
         }
         catch (BaseException)
         {
@@ -111,29 +112,26 @@ internal class SupplierService(
     {
         try
         {
-            var validationResult = await dbContext.Suppliers
-                .Where(s => s.Id == viewModel.Id || EF.Functions.ILike(s.Name, viewModel.Name))
-                .Select(p => new { p.Id, p.Name })
+            var sameNameExists = await dbContext.Suppliers
                 .AsNoTracking()
-                .ToListAsync();
+                .AnyAsync(s => EF.Functions.ILike(s.Name, viewModel.Name) && s.Id != viewModel.Id);
 
-            var supplierExists = validationResult.Any(s => s.Id == viewModel.Id);
-            if (!supplierExists) throw new NotFoundException("Supplier not found");
-
-            var sameNameExists = validationResult.Any(s =>
-                string.Equals(s.Name, viewModel.Name, StringComparison.OrdinalIgnoreCase) && s.Id != viewModel.Id);
             if (sameNameExists)
                 throw new UnauthorizedOperationException("A supplier with the same name already exists");
 
-            var rowsAffected = await dbContext.Suppliers
-                .Where(s => s.Id == viewModel.Id)
-                .ExecuteUpdateAsync(s => s
-                    .SetProperty(s => s.Name, viewModel.Name)
-                    .SetProperty(s => s.PhoneNumber, viewModel.PhoneNumber)
-                    .SetProperty(s => s.Email, viewModel.Email)
-                    .SetProperty(s => s.Address, viewModel.Address));
+            var supplier = await dbContext.Suppliers.FindAsync(viewModel.Id);
 
-            return rowsAffected > 0;
+            if (supplier == null)
+                throw new NotFoundException("Supplier not found");
+
+            supplier.Name = viewModel.Name;
+            supplier.PhoneNumber = viewModel.PhoneNumber;
+            supplier.Email = viewModel.Email;
+            supplier.Address = viewModel.Address;
+
+            var result = await dbContext.SaveChangesAsync();
+
+            return result > 0;
         }
         catch (BaseException)
         {

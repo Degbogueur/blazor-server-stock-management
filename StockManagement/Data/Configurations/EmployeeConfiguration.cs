@@ -4,11 +4,11 @@ using StockManagement.Models;
 
 namespace StockManagement.Data.Configurations;
 
-public class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
+public class EmployeeConfiguration : BaseEntityConfiguration<Employee>
 {
-    public void Configure(EntityTypeBuilder<Employee> builder)
+    public override void Configure(EntityTypeBuilder<Employee> builder)
     {
-        builder.HasQueryFilter(e => !e.IsDeleted);
+        base.Configure(builder);
 
         builder.HasMany(e => e.Operations)
                .WithOne(o => o.Employee)

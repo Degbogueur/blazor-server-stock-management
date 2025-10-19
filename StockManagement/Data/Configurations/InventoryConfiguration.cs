@@ -4,11 +4,11 @@ using StockManagement.Models;
 
 namespace StockManagement.Data.Configurations;
 
-public class InventoryConfiguration : IEntityTypeConfiguration<Inventory>
+public class InventoryConfiguration : AuditableEntityConfiguration<Inventory>
 {
-    public void Configure(EntityTypeBuilder<Inventory> builder)
+    public override void Configure(EntityTypeBuilder<Inventory> builder)
     {
-        builder.HasQueryFilter(i => !i.IsDeleted);
+        base.Configure(builder);
 
         builder.Property(i => i.Code).IsRequired();
 

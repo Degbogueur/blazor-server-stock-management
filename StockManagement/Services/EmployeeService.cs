@@ -56,20 +56,21 @@ internal class EmployeeService(
     {
         try
         {
-            var rowsAffected = await dbContext.Employees
-                .Where(e => e.Id == id &&
-                           !e.Operations.Any())
-                .ExecuteUpdateAsync(e => e
-                .SetProperty(e => e.IsDeleted, true)
-                .SetProperty(e => e.DeletedOn, DateTime.UtcNow));
+            var employee = await dbContext.Employees
+                .Include(e => e.Operations)
+                .FirstOrDefaultAsync(e => e.Id == id);
 
-            if (rowsAffected > 0) return true;
+            if (employee == null)
+                throw new NotFoundException("Employee not found");
 
-            var employeeExists = await dbContext.Employees.IgnoreQueryFilters().AnyAsync(e => e.Id == id);
-            if (!employeeExists) throw new NotFoundException("Employee not found");
+            if (employee.Operations.Count != 0)
+                throw new UnauthorizedOperationException(
+                    "This employee cannot be deleted: they have associated operation entries");
 
-            throw new UnauthorizedOperationException(
-                "This employee cannot be deleted: they have associated operation entries");
+            dbContext.Employees.Remove(employee);
+            var result = await dbContext.SaveChangesAsync();
+
+            return result > 0;
         }
         catch (BaseException)
         {
@@ -116,32 +117,27 @@ internal class EmployeeService(
     {
         try
         {
-            var validationResult = await dbContext.Employees
-                .Where(e => e.Id == viewModel.Id || 
-                           (EF.Functions.ILike(e.FirstName, viewModel.FirstName) &&
-                            EF.Functions.ILike(e.LastName, viewModel.LastName)))
-                .Select(p => new { p.Id, p.FirstName, p.LastName })
+            var sameNameExists = await dbContext.Employees
                 .AsNoTracking()
-                .ToListAsync();
+                .AnyAsync(e => EF.Functions.ILike(e.FirstName, viewModel.FirstName) &&
+                               EF.Functions.ILike(e.LastName, viewModel.LastName) &&
+                               e.Id != viewModel.Id);
 
-            var employeeExists = validationResult.Any(e => e.Id == viewModel.Id);
-            if (!employeeExists) throw new NotFoundException("Employee not found");
-
-            var sameNameExists = validationResult.Any(s =>
-                string.Equals(s.FirstName, viewModel.FirstName, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(s.LastName, viewModel.LastName, StringComparison.OrdinalIgnoreCase) &&
-                s.Id != viewModel.Id);
             if (sameNameExists)
                 throw new UnauthorizedOperationException("An employee with the same name already exists");
 
-            var rowsAffected = await dbContext.Employees
-                .Where(e => e.Id == viewModel.Id)
-                .ExecuteUpdateAsync(e => e
-                    .SetProperty(e => e.FirstName, viewModel.FirstName)
-                    .SetProperty(e => e.LastName, viewModel.LastName)
-                    .SetProperty(e => e.Position, viewModel.Position));
+            var employee = await dbContext.Employees.FindAsync(viewModel.Id);
 
-            return rowsAffected > 0;
+            if (employee == null)
+                throw new NotFoundException("Employee not found");
+
+            employee.FirstName = viewModel.FirstName;
+            employee.LastName = viewModel.LastName;
+            employee.Position = viewModel.Position;
+
+            var result = await dbContext.SaveChangesAsync();
+
+            return result > 0;
         }
         catch (BaseException)
         {

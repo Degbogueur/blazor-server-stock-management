@@ -54,20 +54,21 @@ internal class CategoryService(
     {
         try
         {
-            var rowsAffected = await dbContext.Categories
-                .Where(c => c.Id == id &&
-                           !c.Products.Any())
-                .ExecuteUpdateAsync(c => c
-                .SetProperty(c => c.IsDeleted, true)
-                .SetProperty(c => c.DeletedOn, DateTime.UtcNow));
+            var category = await dbContext.Categories
+                .Include(c => c.Products)
+                .FirstOrDefaultAsync(c => c.Id == id);
 
-            if (rowsAffected > 0) return true;
+            if (category == null)
+                throw new NotFoundException("Category not found");
 
-            var categoryExists = await dbContext.Categories.IgnoreQueryFilters().AnyAsync(c => c.Id == id);
-            if (!categoryExists) throw new NotFoundException("Category not found");
+            if (category.Products.Count != 0)
+                throw new UnauthorizedOperationException(
+                    "This category cannot be deleted: it has associated products");
 
-            throw new UnauthorizedOperationException(
-                "This category cannot be deleted: it has associated products");
+            dbContext.Categories.Remove(category);
+            var result = await dbContext.SaveChangesAsync();
+
+            return result > 0;
         }
         catch (BaseException)
         {
@@ -97,7 +98,8 @@ internal class CategoryService(
 
     public async Task<Category> GetOrCreateCategoryAsync(string name)
     {
-        var category = await dbContext.Categories.FirstOrDefaultAsync(c => c.Name == name);
+        string normalizedName = name.Trim();
+        var category = await dbContext.Categories.FirstOrDefaultAsync(c => c.Name == normalizedName);
 
         if (category == null)
         { 
@@ -112,27 +114,24 @@ internal class CategoryService(
     {
         try
         {
-            var validationResult = await dbContext.Categories
-                .Where(c => c.Id == viewModel.Id || EF.Functions.ILike(c.Name, viewModel.Name))
-                .Select(p => new { p.Id, p.Name })
+            var sameNameExists = await dbContext.Categories
                 .AsNoTracking()
-                .ToListAsync();
+                .AnyAsync(c => EF.Functions.ILike(c.Name, viewModel.Name) && c.Id != viewModel.Id);
 
-            var categoryExists = validationResult.Any(c => c.Id == viewModel.Id);
-            if (!categoryExists) throw new NotFoundException("Category not found");
-
-            var sameNameExists = validationResult.Any(c =>
-                string.Equals(c.Name, viewModel.Name, StringComparison.OrdinalIgnoreCase) && c.Id != viewModel.Id);
             if (sameNameExists)
                 throw new UnauthorizedOperationException("A category with the same name already exists");
 
-            var rowsAffected = await dbContext.Categories
-                .Where(c => c.Id == viewModel.Id)
-                .ExecuteUpdateAsync(c => c
-                    .SetProperty(c => c.Name, viewModel.Name)
-                    .SetProperty(c => c.Description, viewModel.Description));
+            var category = await dbContext.Categories.FindAsync(viewModel.Id);
+            
+            if (category == null)
+                throw new NotFoundException("Category not found");
 
-            return rowsAffected > 0;
+            category.Name = viewModel.Name;
+            category.Description = viewModel.Description;
+
+            var result = await dbContext.SaveChangesAsync();
+
+            return result > 0;
         }
         catch (BaseException)
         {

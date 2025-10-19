@@ -23,10 +23,25 @@ internal class InventoryService(
 {
     public async Task DeleteAsync(int id)
     {
-        await dbContext.Inventories
-            .Where(i => i.Id == id)
-            .ExecuteUpdateAsync(s => s
-                .SetProperty(i => i.IsDeleted, true));
+        try
+        {
+            var inventory = await dbContext.Inventories.FindAsync(id);
+
+            if (inventory == null)
+                throw new NotFoundException("Inventory not found");
+
+            dbContext.Inventories.Remove(inventory);
+            await dbContext.SaveChangesAsync();
+        }
+        catch (BaseException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error while deleting inventory {InventoryId}", id);
+            throw new InternalServerException();
+        }
     }
 
     public IQueryable<InventoryViewModel> GetInventoriesListQuery()

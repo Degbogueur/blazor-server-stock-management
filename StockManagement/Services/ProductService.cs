@@ -63,21 +63,22 @@ internal class ProductService(
     {
         try
         {
-            var rowsAffected = await dbContext.Products
-                .Where(p => p.Id == id &&
-                           !p.Operations.Any() &&
-                           !p.InventoryRows.Any())
-                .ExecuteUpdateAsync(p => p
-                    .SetProperty(p => p.IsDeleted, true)
-                    .SetProperty(p => p.DeletedOn, DateTime.UtcNow));
+            var product = await dbContext.Products
+                .Include(p => p.Operations)
+                .Include(p => p.InventoryRows)
+                .FirstOrDefaultAsync(p => p.Id == id);
 
-            if (rowsAffected > 0) return true;
+            if (product == null)
+                throw new NotFoundException("Product not found");
 
-            var productExists = await dbContext.Products.IgnoreQueryFilters().AnyAsync(p => p.Id == id);
-            if (!productExists) throw new NotFoundException("Product not found");
+            if (product.Operations.Count != 0 || product.InventoryRows.Count != 0)
+                throw new UnauthorizedOperationException(
+                    "This product cannot be deleted: it has associated operation entries");
 
-            throw new UnauthorizedOperationException(
-                "This product cannot be deleted: it has associated operation entries");
+            dbContext.Products.Remove(product);
+            var result = await dbContext.SaveChangesAsync();
+
+            return result > 0;
         }
         catch (BaseException)
         {
@@ -125,32 +126,30 @@ internal class ProductService(
 
         try
         {
-            var validationResult = await dbContext.Products
-                .Where(p => p.Id == viewModel.Id || EF.Functions.ILike(p.Name, viewModel.Name))
-                .Select(p => new { p.Id, p.Name })
+            var sameNameExists = await dbContext.Products
                 .AsNoTracking()
-                .ToListAsync();
+                .AnyAsync(p => EF.Functions.ILike(p.Name, viewModel.Name) && p.Id != viewModel.Id);
 
-            var productExists = validationResult.Any(p => p.Id == viewModel.Id);
-            if (!productExists) throw new NotFoundException("Product not found");
-
-            var sameNameExists = validationResult.Any(p =>
-                string.Equals(p.Name, viewModel.Name, StringComparison.OrdinalIgnoreCase) && p.Id != viewModel.Id);
             if (sameNameExists)
                 throw new UnauthorizedOperationException("A product with the same name already exists");
 
+            var product = await dbContext.Products.FindAsync(viewModel.Id);
+
+            if (product == null)
+                throw new NotFoundException("Product not found");
+
             var category = await categoryService.GetOrCreateCategoryAsync(viewModel.CategoryName);
+            await dbContext.SaveChangesAsync();
 
-            var rowsAffected = await dbContext.Products
-                .Where(p => p.Id == viewModel.Id)
-                .ExecuteUpdateAsync(p => p
-                    .SetProperty(p => p.Name, viewModel.Name)
-                    .SetProperty(p => p.Code, viewModel.Code)
-                    .SetProperty(p => p.MinimumStockLevel, viewModel.MinimumStockLevel)
-                    .SetProperty(p => p.CategoryId, category.Id));
+            product.Name = viewModel.Name;
+            product.Code = viewModel.Code;
+            product.MinimumStockLevel = viewModel.MinimumStockLevel;
+            product.CategoryId = category.Id;
 
+            var result = await dbContext.SaveChangesAsync();
             await transaction.CommitAsync();
-            return rowsAffected > 0;
+
+            return result > 0;
         }
         catch (BaseException)
         {

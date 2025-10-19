@@ -12,6 +12,8 @@ builder.Services.AddDependencyInjectionContainer();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddAuthenticationServices();
 
 builder.Services.AddMudServices();

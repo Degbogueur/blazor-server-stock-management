@@ -4,11 +4,11 @@ using StockManagement.Models;
 
 namespace StockManagement.Data.Configurations;
 
-public class CategoryConfiguration : IEntityTypeConfiguration<Category>
+public class CategoryConfiguration : BaseEntityConfiguration<Category>
 {
-    public void Configure(EntityTypeBuilder<Category> builder)
+    public override void Configure(EntityTypeBuilder<Category> builder)
     {
-        builder.HasQueryFilter(c => !c.IsDeleted);
+        base.Configure(builder);
 
         builder.Property(c => c.Name).HasMaxLength(100)
                                      .IsRequired();
