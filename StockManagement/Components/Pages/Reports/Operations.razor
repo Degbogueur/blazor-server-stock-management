@@ -6,6 +6,7 @@
 @inject IReportService ReportService
 @inject NavigationManager NavigationManager
 @inject StockDbContext DbContext
+@inject IJSRuntime JSRuntime
 
 <PageTitle>List of operations</PageTitle>
 
@@ -70,6 +71,11 @@
     <ToolBarContent>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenOperationDialog">
             Add new operation
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                   StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                   OnClick="DownloadPdf" Class="ml-2">
+            Export to PDF
         </MudButton>
         <MudSpacer />
         <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Immediate="true" DebounceInterval="300"
@@ -283,5 +289,47 @@
     private void NavigateToStockOut()
     {
         NavigationManager.NavigateTo("/stock-out");
+    }
+
+    private async Task DownloadPdf()
+    {
+        // Build query string with current filters
+        var queryParams = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(searchString))
+            queryParams.Add($"searchString={Uri.EscapeDataString(searchString)}");
+
+        if (startDate.HasValue)
+            queryParams.Add($"startDate={startDate.Value:yyyy-MM-dd}");
+
+        if (endDate.HasValue)
+            queryParams.Add($"endDate={endDate.Value:yyyy-MM-dd}");
+
+        if (selectedProductId.HasValue)
+            queryParams.Add($"productId={selectedProductId.Value}");
+
+        if (selectedSupplierId.HasValue)
+            queryParams.Add($"supplierId={selectedSupplierId.Value}");
+
+        if (selectedEmployeeId.HasValue)
+            queryParams.Add($"employeeId={selectedEmployeeId.Value}");
+
+        if (selectedOperationType.HasValue)
+            queryParams.Add($"operationType={selectedOperationType.Value}");
+
+        // Get current sort from grid
+        var sortDefinitionDic = dataGrid.SortDefinitions.FirstOrDefault();
+        var sortDefinition = sortDefinitionDic.Value; 
+        if (sortDefinition != null)
+        {
+            queryParams.Add($"sortBy={sortDefinition.SortBy}");
+            queryParams.Add($"sortDescending={sortDefinition.Descending}");
+        }
+
+        var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+        var url = $"/api/ReportPdf/download-operations-report{queryString}";
+
+        // Trigger download using JavaScript
+        await JSRuntime.InvokeVoidAsync("open", url, "_blank");
     }
 }

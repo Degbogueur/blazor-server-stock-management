@@ -34,6 +34,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISupplierService, SupplierService>();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IReportService, ReportService>();
+        services.AddScoped<IReportPdfService, ReportPdfService>();
     }
 
     public static void AddAuthenticationServices(this IServiceCollection services)
