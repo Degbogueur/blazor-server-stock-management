@@ -9,6 +9,7 @@
 @inject INotificationService NotificationService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
 
 <PageTitle>New stock withdrawal operation</PageTitle>
 
@@ -108,7 +109,7 @@
                                  Required="true"
                                  Immediate="true"
                                  Validation="new Func<int, string?>(ValidateQuantity)"
-                                 For="() => currentOperation.Quantity" />                
+                                 For="() => currentOperation.Quantity" />
             </MudItem>
 
             <MudItem xs="12" md="3">
@@ -425,7 +426,7 @@
         isSaving = true;
 
         var parameters = new DialogParameters<ConfirmationDialog>
-        {
+    {
             { x => x.ContentText, "Do you really want to save all operations ?" },
             { x => x.ButtonText, "Confirm" },
             { x => x.Color, Color.Success }
@@ -450,7 +451,7 @@
                 await NotificationService.AddStockAlertsAsync(saveResult.Alerts);
 
                 var alertParameters = new DialogParameters<StockAlertDialog>
-                {
+            {
                     { x => x.Alerts, saveResult.Alerts }
                 };
                 await DialogService.ShowAsync<StockAlertDialog>("Stock Alerts", alertParameters);
@@ -458,6 +459,8 @@
 
             pendingOperations.Clear();
             await ResetForm();
+
+            NavigationManager.NavigateTo("/stock-operations");
         }
         catch (BaseException ex)
         {

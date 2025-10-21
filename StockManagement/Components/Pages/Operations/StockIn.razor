@@ -8,6 +8,7 @@
 @inject IOperationService OperationService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
 
 <PageTitle>New stock entry operation</PageTitle>
 
@@ -22,17 +23,17 @@
                                Color="Color.Primary"
                                Label="Lock Product"
                                Size="Size.Small"
-                               Disabled="selectedProduct == null"/>
+                               Disabled="selectedProduct == null" />
                     <MudSwitch @bind-Value="lockSupplier"
                                Color="Color.Primary"
                                Label="Lock Supplier"
                                Size="Size.Small"
-                               Disabled="selectedSupplier == null"/>
+                               Disabled="selectedSupplier == null" />
                     <MudSwitch @bind-Value="lockDate"
                                Color="Color.Primary"
                                Label="Lock Date"
                                Size="Size.Small"
-                               Disabled="!operationDate.HasValue"/>
+                               Disabled="!operationDate.HasValue" />
                 </MudStack>
             </MudItem>
 
@@ -392,7 +393,7 @@
         isSaving = true;
 
         var parameters = new DialogParameters<ConfirmationDialog>
-        {
+{
             { x => x.ContentText, "Do you really want to save all operations ?" },
             { x => x.ButtonText, "Confirm" },
             { x => x.Color, Color.Success }
@@ -413,6 +414,8 @@
             Snackbar.Add($"{pendingOperationsCount} {(pendingOperations.Count > 1 ? "entries" : "entry")} saved successfully", Severity.Success);
             pendingOperations.Clear();
             await ResetForm();
+
+            NavigationManager.NavigateTo("/stock-operations");
         }
         catch (BaseException ex)
         {

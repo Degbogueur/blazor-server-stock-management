@@ -19,11 +19,11 @@
         Categories
     </MudNavLink>
 
-    <MudNavGroup Title="Stock Management" Expanded="true" Icon="@Icons.Material.Filled.MoveToInbox">
-        <MudNavLink Href="/stock-in" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Add">
+    <MudNavGroup Title="Stock Management" Expanded="false" Icon="@Icons.Material.Filled.MoveToInbox">
+        <MudNavLink Href="/stock-in" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Add">
             Stock In
         </MudNavLink>
-        <MudNavLink Href="/stock-out" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Remove">
+        <MudNavLink Href="/stock-out" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Remove">
             Stock Out
         </MudNavLink>
     </MudNavGroup>
@@ -31,6 +31,15 @@
     <MudNavLink Href="/inventories" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ListAlt">
         Inventories
     </MudNavLink>
+
+    <MudNavGroup Title="Reports" Expanded="false" Icon="@Icons.Material.Filled.Assessment">
+        <MudNavLink Href="/stock-operations" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.CompareArrows">
+            Stock operations
+        </MudNavLink>
+        <MudNavLink Href="/stock-out" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Remove">
+            Stock Out
+        </MudNavLink>
+    </MudNavGroup>
 
     @*<MudNavGroup Title="Reports" Expanded="false" Icon="@Icons.Material.Filled.Assessment">
             <MudNavLink Href="/reports/stock-levels" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.BarChart">

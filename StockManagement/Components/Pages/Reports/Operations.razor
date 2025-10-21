@@ -1,0 +1,287 @@
+﻿@page "/stock-operations"
+
+@using StockManagement.Models
+@using StockManagement.ViewModels.Operations
+
+@inject IReportService ReportService
+@inject NavigationManager NavigationManager
+@inject StockDbContext DbContext
+
+<PageTitle>List of operations</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Operations</MudText>
+
+<MudPaper Class="pa-4 mb-4" Elevation="2">
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="3">
+            <MudDatePicker Label="Start Date" @bind-Date="startDate" Clearable="true" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudDatePicker Label="End Date" @bind-Date="endDate" Clearable="true" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect T="int?" Label="Product" @bind-Value="selectedProductId" Clearable="true">
+                @foreach (var product in products)
+                {
+                    <MudSelectItem Value="@((int?)product.Id)">@product.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect T="OperationType?" Label="Operation Type" @bind-Value="selectedOperationType" Clearable="true">
+                <MudSelectItem Value="@((OperationType?)OperationType.StockIn)">Stock In</MudSelectItem>
+                <MudSelectItem Value="@((OperationType?)OperationType.StockOut)">Stock Out</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect T="int?" Label="Supplier" @bind-Value="selectedSupplierId" Clearable="true"
+                       Disabled="@(selectedOperationType == OperationType.StockOut)">
+                @foreach (var supplier in suppliers)
+                {
+                    <MudSelectItem Value="@((int?)supplier.Id)">@supplier.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudSelect T="int?" Label="Employee" @bind-Value="selectedEmployeeId" Clearable="true"
+                       Disabled="@(selectedOperationType == OperationType.StockIn)">
+                @foreach (var employee in employees)
+                {
+                    <MudSelectItem Value="@((int?)employee.Id)">@employee.FullName</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3" Class="d-flex align-end">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="ApplyFilters" FullWidth="true">
+                Apply Filters
+            </MudButton>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3" Class="d-flex align-end">
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                       OnClick="ClearFilters" FullWidth="true">
+                Clear Filters
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudDataGrid @ref="dataGrid" T="OperationViewModel" ServerData="ServerReload" Filterable="false">
+    <ToolBarContent>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="OpenOperationDialog">
+            Add new operation
+        </MudButton>
+        <MudSpacer />
+        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Immediate="true" DebounceInterval="300"
+                      Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.ProductName" Title="Product" />
+        <PropertyColumn Property="x => x.Quantity" />
+        <PropertyColumn Property="x => x.Date">
+            <CellTemplate>
+                @context.Item.Date.ToShortDateString()
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.Type" Title="Operation type">
+            <CellTemplate>
+                @{
+                    var (color, icon, label) = GetOperationTypeDisplay(context.Item.Type);
+                }
+                <MudChip Color="@color" Icon="@icon" Size="Size.Small" Variant="Variant.Filled">
+                    @label
+                </MudChip>
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.SupplierName" Title="Supplier">
+            <CellTemplate>
+                @(context.Item.SupplierName ?? "-")
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.EmployeeFullName" Title="Employee">
+            <CellTemplate>
+                @(context.Item.EmployeeFullName ?? "-")
+            </CellTemplate>
+        </PropertyColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-2">
+            No operations found.
+        </MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="OperationViewModel" />
+    </PagerContent>
+</MudDataGrid>
+
+<MudDialog @bind-Visible="showOperationDialog" Options="dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Select Operation Type</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudPaper Elevation="2" Class="pa-4 cursor-pointer hover:mud-elevation-4"
+                      Style="transition: all 0.3s ease;"
+                      @onclick="() => NavigateToStockIn()">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Filled.AddCircle" Color="Color.Success" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.h6" Color="Color.Success">Stock In</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Default">Add inventory from suppliers</MudText>
+                    </div>
+                </MudStack>
+            </MudPaper>
+
+            <MudPaper Elevation="2" Class="pa-4 cursor-pointer hover:mud-elevation-4"
+                      Style="transition: all 0.3s ease;"
+                      @onclick="() => NavigateToStockOut()">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Filled.RemoveCircle" Color="Color.Error" Size="Size.Large" />
+                    <div>
+                        <MudText Typo="Typo.h6" Color="Color.Error">Stock Out</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Default">Remove inventory for employees</MudText>
+                    </div>
+                </MudStack>
+            </MudPaper>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseOperationDialog">Cancel</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    MudDataGrid<OperationViewModel> dataGrid = new MudDataGrid<OperationViewModel>();
+
+    // Search and filter parameters
+    string? searchString = null;
+    DateTime? startDate = null;
+    DateTime? endDate = null;
+    int? selectedProductId = null;
+    int? selectedSupplierId = null;
+    int? selectedEmployeeId = null;
+    OperationType? selectedOperationType = null;
+
+    // Lookup data
+    List<Product> products = new();
+    List<Supplier> suppliers = new();
+    List<Employee> employees = new();
+
+    // Dialog
+    bool showOperationDialog = false;
+    DialogOptions dialogOptions = new DialogOptions
+    {
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true,
+        CloseButton = true
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load only minimal lookup data (ID and Name)
+        products = await DbContext.Products
+            .Where(p => !p.IsDeleted)
+            .Select(p => new Product { Id = p.Id, Name = p.Name })
+            .OrderBy(p => p.Name)
+            .AsNoTracking()
+            .ToListAsync();
+
+        suppliers = await DbContext.Suppliers
+            .Where(s => !s.IsDeleted)
+            .Select(s => new Supplier { Id = s.Id, Name = s.Name })
+            .OrderBy(s => s.Name)
+            .AsNoTracking()
+            .ToListAsync();
+
+        employees = await DbContext.Employees
+            .Where(e => !e.IsDeleted)
+            .Select(e => new Employee { Id = e.Id, FirstName = e.FirstName, LastName = e.LastName })
+            .OrderBy(e => e.FirstName)
+            .ThenBy(e => e.LastName)
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    private async Task<GridData<OperationViewModel>> ServerReload(GridState<OperationViewModel> state)
+    {
+        // Get sort parameters
+        var sortDefinition = state.SortDefinitions.FirstOrDefault();
+        string? sortBy = sortDefinition?.SortBy;
+        bool sortDescending = sortDefinition?.Descending ?? false;
+
+        // Call service with all parameters
+        var (items, totalCount) = await ReportService.GetOperationsAsync(
+            page: state.Page,
+            pageSize: state.PageSize,
+            searchString: searchString,
+            sortBy: sortBy,
+            sortDescending: sortDescending,
+            startDate: startDate,
+            endDate: endDate,
+            productId: selectedProductId,
+            supplierId: selectedSupplierId,
+            employeeId: selectedEmployeeId,
+            operationType: selectedOperationType
+        );
+
+        return new GridData<OperationViewModel>
+        {
+            TotalItems = totalCount,
+            Items = items
+        };
+    }
+
+    private Task OnSearch(string text)
+    {
+        searchString = text;
+        return dataGrid.ReloadServerData();
+    }
+
+    private Task ApplyFilters()
+    {
+        return dataGrid.ReloadServerData();
+    }
+
+    private async Task ClearFilters()
+    {
+        startDate = null;
+        endDate = null;
+        selectedProductId = null;
+        selectedSupplierId = null;
+        selectedEmployeeId = null;
+        selectedOperationType = null;
+        searchString = null;
+        await dataGrid.ReloadServerData();
+    }
+
+    private (Color color, string icon, string label) GetOperationTypeDisplay(OperationType type)
+    {
+        return type switch
+        {
+            OperationType.StockIn => (Color.Success, Icons.Material.Filled.AddCircle, "Stock in"),
+            OperationType.StockOut => (Color.Error, Icons.Material.Filled.RemoveCircle, "Stock out"),
+            _ => (Color.Default, Icons.Material.Filled.Help, "Unknown")
+        };
+    }
+
+    private void OpenOperationDialog()
+    {
+        showOperationDialog = true;
+    }
+
+    private void CloseOperationDialog()
+    {
+        showOperationDialog = false;
+    }
+
+    private void NavigateToStockIn()
+    {
+        NavigationManager.NavigateTo("/stock-in");
+    }
+
+    private void NavigateToStockOut()
+    {
+        NavigationManager.NavigateTo("/stock-out");
+    }
+}
