@@ -16,3 +16,13 @@ public class OperationViewModel
     public string? EmployeeFullName { get; set; }
     public DateTime CreatedAt { get; set; }
 }
+
+public class OperationFiltersViewModel
+{
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public int? ProductId { get; set; }
+    public int? SupplierId { get; set; }
+    public int? EmployeeId { get; set; }
+    public OperationType? Type { get; set; }
+}

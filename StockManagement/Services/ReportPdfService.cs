@@ -3,6 +3,7 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using StockManagement.Models;
 using StockManagement.ViewModels.Operations;
+using StockManagement.ViewModels.Requests;
 
 namespace StockManagement.Services;
 
@@ -41,20 +42,28 @@ internal class ReportPdfService : IReportPdfService
         int? employeeId = null,
         OperationType? operationType = null)
     {
-        var (items, totalCount) = await _reportService.GetOperationsAsync(
-            page: 0,
-            pageSize: int.MaxValue,
-            searchString: searchString,
-            sortBy: sortBy,
-            sortDescending: sortDescending,
-            startDate: startDate,
-            endDate: endDate,
-            productId: productId,
-            supplierId: supplierId,
-            employeeId: employeeId,
-            operationType: operationType);
+        var request = new DataGridRequest
+        {
+            Page = 0,
+            PageSize = int.MaxValue,
+            SearchTerm = searchString,
+            SortBy = sortBy,
+            SortDescending = sortDescending
+        };
 
-        var operations = items.ToList();
+        var filters = new OperationFiltersViewModel
+        {
+            StartDate = startDate,
+            EndDate = endDate,
+            ProductId = productId,
+            SupplierId = supplierId,
+            EmployeeId = employeeId,
+            Type = operationType
+        };
+
+        var result = await _reportService.GetStockOperationsAsync(request, filters);
+
+        var operations = result.Items.ToList();
 
         var document = Document.Create(container =>
         {
@@ -95,7 +104,7 @@ internal class ReportPdfService : IReportPdfService
                     .Bold()
                     .FontColor(Colors.Blue.Darken2);
 
-                column.Item().Text($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm}")
+                column.Item().Text($"Generated: {DateTime.UtcNow:yyyy-MM-dd HH:mm}")
                     .FontSize(9)
                     .FontColor(Colors.Grey.Darken1);
             });

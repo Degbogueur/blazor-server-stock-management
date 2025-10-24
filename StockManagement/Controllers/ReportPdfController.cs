@@ -32,7 +32,7 @@ public class ReportPdfController(IReportPdfService pdfService) : Controller
             operationType: operationType
         );
 
-        var fileName = $"Operations_Report_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+        var fileName = $"Operations_Report_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
 
         return File(pdfBytes, "application/pdf", fileName);
     }

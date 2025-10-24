@@ -5,24 +5,15 @@ using StockManagement.ViewModels.Operations;
 using StockManagement.ViewModels.Products;
 using StockManagement.ViewModels.Requests;
 using StockManagement.ViewModels.Results;
-using System.Globalization;
 
 namespace StockManagement.Services;
 
 public interface IReportService
 {
-    Task<(IEnumerable<OperationViewModel> items, int totalCount)> GetStockOperationsAsync(
-        int page,
-        int pageSize,
-        string? searchString = null,
-        string? sortBy = null,
-        bool sortDescending = false,
-        DateTime? startDate = null,
-        DateTime? endDate = null,
-        int? productId = null,
-        int? supplierId = null,
-        int? employeeId = null,
-        OperationType? operationType = null);
+    Task<DataGridResult<OperationViewModel>> GetStockOperationsAsync(
+        DataGridRequest request,
+        OperationFiltersViewModel filters,
+        CancellationToken cancellationToken = default);
 
     Task<DataGridResult<StockCardProductViewModel>> GetStockCardProductsAsync(
         DataGridRequest request,
@@ -38,19 +29,18 @@ internal class ReportService(
     IDbContextFactory<StockDbContext> dbContextFactory,
     StockDbContext dbContext) : IReportService
 {
-    public async Task<(IEnumerable<OperationViewModel> items, int totalCount)> GetStockOperationsAsync(
-        int page,
-        int pageSize,
-        string? searchString = null,
-        string? sortBy = null,
-        bool sortDescending = false,
-        DateTime? startDate = null,
-        DateTime? endDate = null,
-        int? productId = null,
-        int? supplierId = null,
-        int? employeeId = null,
-        OperationType? operationType = null)
+    public async Task<DataGridResult<OperationViewModel>> GetStockOperationsAsync(
+        DataGridRequest request,
+        OperationFiltersViewModel filters,
+        CancellationToken cancellationToken = default)
     {
+        DateTime? startDate = filters.StartDate;
+        DateTime? endDate = filters.EndDate;
+        int? productId = filters.ProductId;
+        int? supplierId = filters.SupplierId;
+        int? employeeId = filters.EmployeeId;
+        OperationType? operationType = filters.Type;
+
         using var dbContext = dbContextFactory.CreateDbContext();
 
         // Build separate queries for StockIn and StockOut
@@ -112,25 +102,25 @@ internal class ReportService(
         }
 
         // Apply search filter
-        if (!string.IsNullOrWhiteSpace(searchString))
+        if (!string.IsNullOrWhiteSpace(request.SearchTerm))
         {
             stockInQuery = stockInQuery.Where(o =>
-                EF.Functions.ILike(o.Product!.Name, $"%{searchString}%") ||
-                EF.Functions.ILike(o.Quantity.ToString(), $"%{searchString}%") ||
-                EF.Functions.ILike(o.Supplier!.Name, $"%{searchString}%") ||
-                EF.Functions.ILike("StockIn", $"%{searchString}%"));
+                EF.Functions.ILike(o.Product!.Name, $"%{request.SearchTerm}%") ||
+                EF.Functions.ILike(o.Quantity.ToString(), $"%{request.SearchTerm}%") ||
+                EF.Functions.ILike(o.Supplier!.Name, $"%{request.SearchTerm}%") ||
+                EF.Functions.ILike(o.Type.ToString(), $"%{request.SearchTerm}%"));
 
             stockOutQuery = stockOutQuery.Where(o =>
-                EF.Functions.ILike(o.Product!.Name, $"%{searchString}%") ||
-                EF.Functions.ILike(o.Quantity.ToString(), $"%{searchString}%") ||
-                EF.Functions.ILike(o.Employee!.FirstName, $"%{searchString}%") ||
-                EF.Functions.ILike(o.Employee!.LastName, $"%{searchString}%") ||
-                EF.Functions.ILike("StockOut", $"%{searchString}%"));
+                EF.Functions.ILike(o.Product!.Name, $"%{request.SearchTerm}%") ||
+                EF.Functions.ILike(o.Quantity.ToString(), $"%{request.SearchTerm}%") ||
+                EF.Functions.ILike(o.Employee!.FirstName, $"%{request.SearchTerm}%") ||
+                EF.Functions.ILike(o.Employee!.LastName, $"%{request.SearchTerm}%") ||
+                EF.Functions.ILike(o.Type.ToString(), $"%{request.SearchTerm}%"));
         }
 
         // Get counts from both queries
-        var stockInCount = await stockInQuery.CountAsync();
-        var stockOutCount = await stockOutQuery.CountAsync();
+        var stockInCount = await stockInQuery.CountAsync(cancellationToken);
+        var stockOutCount = await stockOutQuery.CountAsync(cancellationToken);
         var totalCount = stockInCount + stockOutCount;
 
         // Fetch data from both tables separately
@@ -150,7 +140,7 @@ internal class ReportService(
                 CreatedAt = o.CreatedAt
             })
             .AsNoTracking()
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         var stockOutOps = await stockOutQuery
             .Select(o => new OperationViewModel
@@ -168,13 +158,14 @@ internal class ReportService(
                 CreatedAt = o.CreatedAt
             })
             .AsNoTracking()
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         // Combine and sort in memory (only the filtered subset)
         var combined = stockInOps.Concat(stockOutOps);
 
         // Apply sorting
-        combined = sortBy switch
+        bool sortDescending = request.SortDescending;
+        combined = request.SortBy switch
         {
             nameof(OperationViewModel.ProductName) => sortDescending
                 ? combined.OrderByDescending(o => o.ProductName)
@@ -200,11 +191,15 @@ internal class ReportService(
 
         // Apply pagination
         var pagedData = combined
-            .Skip(page * pageSize)
-            .Take(pageSize)
+            .Skip(request.Page * request.PageSize)
+            .Take(request.PageSize)
             .ToList();
 
-        return (pagedData, totalCount);
+        return new DataGridResult<OperationViewModel>
+        {
+            Items = pagedData,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<DataGridResult<StockCardProductViewModel>> GetStockCardProductsAsync(

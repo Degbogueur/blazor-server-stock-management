@@ -2,10 +2,11 @@
 
 @using StockManagement.Models
 @using StockManagement.ViewModels.Operations
+@using StockManagement.ViewModels.Requests
 
 @inject IReportService ReportService
 @inject NavigationManager NavigationManager
-@inject StockDbContext DbContext
+@inject IDbContextFactory<StockDbContext> DbContextFactory
 @inject IJSRuntime JSRuntime
 
 <PageTitle>List of operations</PageTitle>
@@ -161,7 +162,7 @@
     MudDataGrid<OperationViewModel> dataGrid = new MudDataGrid<OperationViewModel>();
 
     // Search and filter parameters
-    string? searchString = null;
+    string? searchTerm = null;
     DateTime? startDate = null;
     DateTime? endDate = null;
     int? selectedProductId = null;
@@ -185,7 +186,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Load only minimal lookup data (ID and Name)
+        using var DbContext = await DbContextFactory.CreateDbContextAsync();
+        // Load lookup data sequentially to avoid concurrent query issues
         products = await DbContext.Products
             .Where(p => !p.IsDeleted)
             .Select(p => new Product { Id = p.Id, Name = p.Name })
@@ -216,31 +218,38 @@
         string? sortBy = sortDefinition?.SortBy;
         bool sortDescending = sortDefinition?.Descending ?? false;
 
+        var request = new DataGridRequest
+        {
+            Page = state.Page,
+            PageSize = state.PageSize,
+            SearchTerm = searchTerm,
+            SortBy = sortBy,
+            SortDescending = sortDescending
+        };
+
+        var filters = new OperationFiltersViewModel
+        {
+            StartDate = startDate,
+            EndDate = endDate,
+            ProductId = selectedProductId,
+            SupplierId = selectedSupplierId,
+            EmployeeId = selectedEmployeeId,
+            Type = selectedOperationType
+        };
+
         // Call service with all parameters
-        var (items, totalCount) = await ReportService.GetOperationsAsync(
-            page: state.Page,
-            pageSize: state.PageSize,
-            searchString: searchString,
-            sortBy: sortBy,
-            sortDescending: sortDescending,
-            startDate: startDate,
-            endDate: endDate,
-            productId: selectedProductId,
-            supplierId: selectedSupplierId,
-            employeeId: selectedEmployeeId,
-            operationType: selectedOperationType
-        );
+        var result = await ReportService.GetStockOperationsAsync(request, filters);
 
         return new GridData<OperationViewModel>
         {
-            TotalItems = totalCount,
-            Items = items
+            Items = result.Items,
+            TotalItems = result.TotalCount
         };
     }
 
     private Task OnSearch(string text)
     {
-        searchString = text;
+        searchTerm = text;
         return dataGrid.ReloadServerData();
     }
 
@@ -257,7 +266,7 @@
         selectedSupplierId = null;
         selectedEmployeeId = null;
         selectedOperationType = null;
-        searchString = null;
+        searchTerm = null;
         await dataGrid.ReloadServerData();
     }
 
@@ -296,8 +305,8 @@
         // Build query string with current filters
         var queryParams = new List<string>();
 
-        if (!string.IsNullOrWhiteSpace(searchString))
-            queryParams.Add($"searchString={Uri.EscapeDataString(searchString)}");
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+            queryParams.Add($"searchString={Uri.EscapeDataString(searchTerm)}");
 
         if (startDate.HasValue)
             queryParams.Add($"startDate={startDate.Value:yyyy-MM-dd}");
@@ -319,7 +328,7 @@
 
         // Get current sort from grid
         var sortDefinitionDic = dataGrid.SortDefinitions.FirstOrDefault();
-        var sortDefinition = sortDefinitionDic.Value; 
+        var sortDefinition = sortDefinitionDic.Value;
         if (sortDefinition != null)
         {
             queryParams.Add($"sortBy={sortDefinition.SortBy}");
