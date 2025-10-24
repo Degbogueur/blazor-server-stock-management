@@ -5,6 +5,7 @@ using StockManagement.ViewModels.Operations;
 using StockManagement.ViewModels.Products;
 using StockManagement.ViewModels.Requests;
 using StockManagement.ViewModels.Results;
+using System.Globalization;
 
 namespace StockManagement.Services;
 
@@ -23,7 +24,9 @@ public interface IReportService
         int? employeeId = null,
         OperationType? operationType = null);
 
-    IQueryable<StockCardProductViewModel> GetStockCardProductsListQuery();
+    Task<DataGridResult<StockCardProductViewModel>> GetStockCardProductsAsync(
+        DataGridRequest request,
+        CancellationToken cancellationToken = default);
 
     Task<DataGridResult<ProductViewModel>> GetStockLevelsAsync(
         DataGridRequest request,
@@ -204,10 +207,54 @@ internal class ReportService(
         return (pagedData, totalCount);
     }
 
-    public IQueryable<StockCardProductViewModel> GetStockCardProductsListQuery()
+    public async Task<DataGridResult<StockCardProductViewModel>> GetStockCardProductsAsync(
+        DataGridRequest request,
+        CancellationToken cancellationToken = default)
     {
-        return dbContext.Products
-            .OrderBy(p => p.Name)
+        var query = dbContext.Products
+            .AsQueryable();
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(request.SearchTerm))
+        {
+            query = query.Where(p =>
+                EF.Functions.ILike(p.Name, $"%{request.SearchTerm}%") ||
+                EF.Functions.ILike(p.Code!, $"%{request.SearchTerm}%"));
+        }
+
+        // Get total count
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // Apply sorting
+        bool sortDescending = request.SortDescending;
+        query =  request.SortBy switch
+        {
+            nameof(StockCardProductViewModel.ProductName) => sortDescending 
+                ? query.OrderByDescending(p => p.Name)
+                : query.OrderBy(p => p.Name),
+            nameof(StockCardProductViewModel.ProductCode) => sortDescending 
+                ? query.OrderByDescending(p => p.Code)
+                : query.OrderBy(p => p.Code),
+            nameof(StockCardProductViewModel.TotalStockIn) => sortDescending 
+                ? query.OrderByDescending(p => p.Operations.Where(o => o.Type == OperationType.StockIn)
+                                                           .Sum(o => o.Quantity))
+                : query.OrderBy(p => p.Operations.Where(o => o.Type == OperationType.StockIn)
+                                                 .Sum(o => o.Quantity)),
+            nameof(StockCardProductViewModel.TotalStockOut) => sortDescending 
+                ? query.OrderByDescending(p => p.Operations.Where(o => o.Type == OperationType.StockOut)
+                                                         .Sum(o => o.Quantity))
+                : query.OrderBy(p => p.Operations.Where(o => o.Type == OperationType.StockOut)
+                                                 .Sum(o => o.Quantity)),
+            nameof(StockCardProductViewModel.CurrentStockLevel) => sortDescending 
+                ? query.OrderByDescending(p => p.CurrentStock)
+                : query.OrderBy(p => p.CurrentStock),
+            _ => query.OrderBy(p => p.Name)
+        };
+
+        // Apply pagination
+        var items = await query
+            .Skip(request.Page * request.PageSize)
+            .Take(request.PageSize)
             .Select(p => new StockCardProductViewModel
             {
                 ProductId = p.Id,
@@ -221,7 +268,14 @@ internal class ReportService(
                     .Sum(o => o.Quantity),
                 CurrentStockLevel = p.CurrentStock
             })
-            .AsNoTracking();
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        return new DataGridResult<StockCardProductViewModel>
+        {
+            Items = items,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<DataGridResult<ProductViewModel>> GetStockLevelsAsync(
@@ -261,7 +315,19 @@ internal class ReportService(
         var totalCount = await query.CountAsync(cancellationToken);
 
         // Apply sorting
-        query = ApplySorting(query, request.SortBy, request.SortDescending);
+        bool sortDescending = request.SortDescending;
+        query =  request.SortBy switch
+        {
+            nameof(ProductViewModel.Name) => sortDescending ? query.OrderByDescending(p => p.Name)
+                                                            : query.OrderBy(p => p.Name),
+            nameof(ProductViewModel.Code) => sortDescending ? query.OrderByDescending(p => p.Code)
+                                                            : query.OrderBy(p => p.Code),
+            nameof(ProductViewModel.CurrentStock) => sortDescending ? query.OrderByDescending(p => p.CurrentStock)
+                                                                    : query.OrderBy(p => p.CurrentStock),
+            nameof(ProductViewModel.MinimumStockLevel) => sortDescending ? query.OrderByDescending(p => p.MinimumStockLevel)
+                                                                         : query.OrderBy(p => p.MinimumStockLevel),
+            _ => query.OrderBy(p => p.Name)
+        };
 
         // Apply pagination
         var items = await query
@@ -316,27 +382,5 @@ internal class ReportService(
             .AsNoTracking();
 
         return query;
-    }
-
-    private IQueryable<ProductViewModel> ApplySorting(
-        IQueryable<ProductViewModel> query, string? sortBy, bool sortDescending)
-    {
-        if (string.IsNullOrWhiteSpace(sortBy))
-        {
-            return query.OrderBy(p => p.Name);
-        }
-
-        return sortBy switch
-        {
-            nameof(ProductViewModel.Name) => sortDescending ? query.OrderByDescending(p => p.Name) 
-                                                            : query.OrderBy(p => p.Name),
-            nameof(ProductViewModel.Code) => sortDescending ? query.OrderByDescending(p => p.Code) 
-                                                            : query.OrderBy(p => p.Code),
-            nameof(ProductViewModel.CurrentStock) => sortDescending ? query.OrderByDescending(p => p.CurrentStock) 
-                                                                    : query.OrderBy(p => p.CurrentStock),
-            nameof(ProductViewModel.MinimumStockLevel) => sortDescending ? query.OrderByDescending(p => p.MinimumStockLevel)
-                                                                         : query.OrderBy(p => p.MinimumStockLevel),
-            _ => query.OrderBy(p => p.Name)
-        };
     }
 }
