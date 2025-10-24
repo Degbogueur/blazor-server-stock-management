@@ -35,19 +35,19 @@
                       IconSize="Size.Medium" Class="mt-0"></MudTextField>
     </ToolBarContent>
     <Columns>
-        <PropertyColumn Property="x => x.Code" Title="Code" />
-        <PropertyColumn Property="x => x.Name" Title="Nom" />
+        <PropertyColumn Property="x => x.Code" />
+        <PropertyColumn Property="x => x.Name" />
         <PropertyColumn Property="x => x.CurrentStock" Title="Stock" />
-        <PropertyColumn Property="x => x.MinimumStockLevel" Title="Stock Min" />
-        <TemplateColumn Title="Statut" Sortable="false" Filterable="false">
+        <PropertyColumn Property="x => x.MinimumStockLevel" Title="Min Stock Level" />
+        <TemplateColumn Title="Status" Sortable="false" Filterable="false">
             <CellTemplate>
                 @if (context.Item.CurrentStock < context.Item.MinimumStockLevel)
                 {
-                    <MudChip Color="Color.Error" Size="Size.Small">Faible</MudChip>
+                    <MudChip Color="Color.Warning" Size="Size.Small">Low</MudChip>
                 }
                 else
                 {
-                    <MudChip Color="Color.Success" Size="Size.Small">OK</MudChip>
+                    <MudChip Color="Color.Success" Size="Size.Small">Normal</MudChip>
                 }
             </CellTemplate>
         </TemplateColumn>
