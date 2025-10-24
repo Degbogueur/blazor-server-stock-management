@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Hangfire;
+using Hangfire.Annotations;
+using Hangfire.Dashboard;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using StockManagement.Models;
 
@@ -54,6 +57,24 @@ public static class ApplicationBuilderExtensions
                 logger.LogError($"Failed to create admin user", result.Errors.ToArray());
             }
         }
+    }
+
+    public static void AddHangfireDashboard(this IApplicationBuilder app)
+    {
+        app.UseHangfireDashboard("/hangfire", new DashboardOptions
+        {
+            Authorization = new[] { new HangfireAuthorizationFilter() }
+        });
+    }
+}
+
+internal class HangfireAuthorizationFilter : IDashboardAuthorizationFilter
+{
+    public bool Authorize(DashboardContext context)
+    {
+        var httpContext = context.GetHttpContext();
+
+        return httpContext.User.IsInRole("Admin");
     }
 }
 

@@ -1,7 +1,9 @@
+using Hangfire;
 using MudBlazor.Services;
 using StockManagement.Components;
 using StockManagement.Components.Account;
 using StockManagement.Extensions;
+using StockManagement.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +23,8 @@ builder.Services.AddMudServices();
 builder.Services.AddSettings(builder.Configuration);
 
 builder.Services.AddClaimsPrincipalFactory();
+
+builder.Services.AddHangfireConfiguration(builder.Configuration);
 
 builder.Services.AddControllers();
 
@@ -47,6 +51,10 @@ app.MapRazorComponents<App>()
 
 app.MapAdditionalIdentityEndpoints();
 
+app.AddHangfireDashboard();
+
 app.MapControllers();
+
+HangfireJobsService.ConfigureRecurringJobs();
 
 app.Run();

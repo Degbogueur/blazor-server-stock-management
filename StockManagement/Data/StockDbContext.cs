@@ -85,4 +85,5 @@ public class StockDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Operation> Operations { get; set; }
     public DbSet<Product> Products { get; set; }
     public DbSet<Supplier> Suppliers { get; set; }
-}
+    public DbSet<StockSnapshot> StockSnapshots { get; set; }
+    }

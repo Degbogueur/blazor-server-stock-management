@@ -2,12 +2,15 @@
 using StockManagement.Data;
 using StockManagement.Models;
 using StockManagement.ViewModels.Operations;
+using StockManagement.ViewModels.Products;
+using StockManagement.ViewModels.Requests;
+using StockManagement.ViewModels.Results;
 
 namespace StockManagement.Services;
 
 public interface IReportService
 {
-    Task<(IEnumerable<OperationViewModel> items, int totalCount)> GetOperationsAsync(
+    Task<(IEnumerable<OperationViewModel> items, int totalCount)> GetStockOperationsAsync(
         int page,
         int pageSize,
         string? searchString = null,
@@ -19,11 +22,20 @@ public interface IReportService
         int? supplierId = null,
         int? employeeId = null,
         OperationType? operationType = null);
+
+    IQueryable<StockCardProductViewModel> GetStockCardProductsListQuery();
+
+    Task<DataGridResult<ProductViewModel>> GetStockLevelsAsync(
+        DataGridRequest request,
+        DateTime? asOfDate = null,
+        CancellationToken cancellationToken = default);
 }
 
-internal class ReportService(StockDbContext dbContext) : IReportService
+internal class ReportService(
+    IDbContextFactory<StockDbContext> dbContextFactory,
+    StockDbContext dbContext) : IReportService
 {
-    public async Task<(IEnumerable<OperationViewModel> items, int totalCount)> GetOperationsAsync(
+    public async Task<(IEnumerable<OperationViewModel> items, int totalCount)> GetStockOperationsAsync(
         int page,
         int pageSize,
         string? searchString = null,
@@ -36,6 +48,8 @@ internal class ReportService(StockDbContext dbContext) : IReportService
         int? employeeId = null,
         OperationType? operationType = null)
     {
+        using var dbContext = dbContextFactory.CreateDbContext();
+
         // Build separate queries for StockIn and StockOut
         IQueryable<StockInOperation> stockInQuery = dbContext.Set<StockInOperation>()
             .Include(o => o.Product)
@@ -132,6 +146,7 @@ internal class ReportService(StockDbContext dbContext) : IReportService
                 EmployeeFullName = null,
                 CreatedAt = o.CreatedAt
             })
+            .AsNoTracking()
             .ToListAsync();
 
         var stockOutOps = await stockOutQuery
@@ -149,6 +164,7 @@ internal class ReportService(StockDbContext dbContext) : IReportService
                 EmployeeFullName = o.Employee!.FirstName + " " + o.Employee.LastName,
                 CreatedAt = o.CreatedAt
             })
+            .AsNoTracking()
             .ToListAsync();
 
         // Combine and sort in memory (only the filtered subset)
@@ -186,5 +202,141 @@ internal class ReportService(StockDbContext dbContext) : IReportService
             .ToList();
 
         return (pagedData, totalCount);
+    }
+
+    public IQueryable<StockCardProductViewModel> GetStockCardProductsListQuery()
+    {
+        return dbContext.Products
+            .OrderBy(p => p.Name)
+            .Select(p => new StockCardProductViewModel
+            {
+                ProductId = p.Id,
+                ProductName = p.Name,
+                ProductCode = p.Code,
+                TotalStockIn = p.Operations
+                    .Where(o => o.Type == OperationType.StockIn)
+                    .Sum(o => o.Quantity),
+                TotalStockOut = p.Operations
+                    .Where(o => o.Type == OperationType.StockOut)
+                    .Sum(o => o.Quantity),
+                CurrentStockLevel = p.CurrentStock
+            })
+            .AsNoTracking();
+    }
+
+    public async Task<DataGridResult<ProductViewModel>> GetStockLevelsAsync(
+        DataGridRequest request, 
+        DateTime? asOfDate = null, 
+        CancellationToken cancellationToken = default)
+    {
+        IQueryable<ProductViewModel> query;
+
+        if (asOfDate == null)
+        {
+            query = dbContext.Products
+                .Select(p => new ProductViewModel
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    Code = p.Code,
+                    CurrentStock = p.CurrentStock,
+                    MinimumStockLevel = p.MinimumStockLevel
+                })
+                .AsNoTracking();
+        }
+        else
+        {
+            query = await GetHistoricalStockQueryAsync(asOfDate.Value, cancellationToken);
+        }
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(request.SearchTerm))
+        {
+            query = query.Where(p =>
+                EF.Functions.ILike(p.Name, $"%{request.SearchTerm}%") ||
+                EF.Functions.ILike(p.Code!, $"%{request.SearchTerm}%"));
+        }
+
+        // Get total count
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // Apply sorting
+        query = ApplySorting(query, request.SortBy, request.SortDescending);
+
+        // Apply pagination
+        var items = await query
+            .Skip(request.Page * request.PageSize)
+            .Take(request.PageSize)
+            .ToListAsync(cancellationToken);
+
+        return new DataGridResult<ProductViewModel>
+        {
+            Items = items,
+            TotalCount = totalCount
+        };
+    }
+
+    private async Task<IQueryable<ProductViewModel>> GetHistoricalStockQueryAsync(
+        DateTime osOfDate, CancellationToken cancellationToken)
+    {
+        var lastSnapshotDate = await dbContext.StockSnapshots
+            .Where(s => s.SnapshotDate <= osOfDate.Date)
+            .OrderByDescending(s => s.SnapshotDate)
+            .Select(s => s.SnapshotDate)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var snapshots = await dbContext.StockSnapshots
+            .Where(s => s.SnapshotDate == lastSnapshotDate)
+            .AsNoTracking()
+            .ToDictionaryAsync(s => s.ProductId, s => s.QuantityInStock, cancellationToken);
+
+        var variances = await dbContext.Operations
+            .Where(o => o.Date > lastSnapshotDate && o.Date <= osOfDate)
+            .GroupBy(o => o.ProductId)
+            .Select(g => new
+            {
+                ProductId = g.Key,
+                Variance = g.Sum(o => o.Type == OperationType.StockIn ? o.Quantity : -o.Quantity)
+            })
+            .AsNoTracking()
+            .ToDictionaryAsync(x => x.ProductId, x => x.Variance, cancellationToken);
+
+        var productIds = snapshots.Keys.Union(variances.Keys).ToList();
+
+        var query = dbContext.Products
+            .Where(p => productIds.Contains(p.Id) || snapshots.Count == 0)
+            .Select(p => new ProductViewModel
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Code = p.Code,
+                CurrentStock = snapshots.GetValueOrDefault(p.Id, 0) + variances.GetValueOrDefault(p.Id, 0),
+                MinimumStockLevel = p.MinimumStockLevel
+            })
+            .AsNoTracking();
+
+        return query;
+    }
+
+    private IQueryable<ProductViewModel> ApplySorting(
+        IQueryable<ProductViewModel> query, string? sortBy, bool sortDescending)
+    {
+        if (string.IsNullOrWhiteSpace(sortBy))
+        {
+            return query.OrderBy(p => p.Name);
+        }
+
+        return sortBy switch
+        {
+            nameof(ProductViewModel.Name) => sortDescending ? query.OrderByDescending(p => p.Name) 
+                                                            : query.OrderBy(p => p.Name),
+            nameof(ProductViewModel.Code) => sortDescending ? query.OrderByDescending(p => p.Code) 
+                                                            : query.OrderBy(p => p.Code),
+            nameof(ProductViewModel.CurrentStock) => sortDescending ? query.OrderByDescending(p => p.CurrentStock) 
+                                                                    : query.OrderBy(p => p.CurrentStock),
+            nameof(ProductViewModel.MinimumStockLevel) => sortDescending ? query.OrderByDescending(p => p.MinimumStockLevel)
+                                                                         : query.OrderBy(p => p.MinimumStockLevel),
+            _ => query.OrderBy(p => p.Name)
+        };
     }
 }

@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Components.Authorization;
+﻿using Hangfire;
+using Hangfire.PostgreSql;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using StockManagement.Components.Account;
@@ -35,6 +37,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<IReportPdfService, ReportPdfService>();
+        services.AddScoped<IStockSnapshotService, StockSnapshotService>();
     }
 
     public static void AddAuthenticationServices(this IServiceCollection services)
@@ -63,5 +66,17 @@ public static class ServiceCollectionExtensions
     public static void AddClaimsPrincipalFactory(this IServiceCollection services)
     {
         services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, ApplicationUserClaimsPrincipalFactory>();
+    }
+
+    public static void AddHangfireConfiguration(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddHangfire(config => config
+            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UsePostgreSqlStorage(c =>
+                c.UseNpgsqlConnection(configuration.GetConnectionString("StockDbConnection"))));
+        
+        services.AddHangfireServer();
     }
 }
