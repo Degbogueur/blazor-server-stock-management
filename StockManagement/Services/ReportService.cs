@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using StockManagement.Data;
+using StockManagement.Exceptions;
 using StockManagement.Models;
 using StockManagement.ViewModels.Operations;
 using StockManagement.ViewModels.Products;
@@ -17,6 +18,12 @@ public interface IReportService
 
     Task<DataGridResult<StockCardProductViewModel>> GetStockCardProductsAsync(
         DataGridRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<StockCardViewModel> GetStockCardAsync(
+        int productId,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
         CancellationToken cancellationToken = default);
 
     Task<DataGridResult<ProductViewModel>> GetStockLevelsAsync(
@@ -214,7 +221,7 @@ internal class ReportService(
         {
             query = query.Where(p =>
                 EF.Functions.ILike(p.Name, $"%{request.SearchTerm}%") ||
-                EF.Functions.ILike(p.Code!, $"%{request.SearchTerm}%"));
+                EF.Functions.ILike(p.Code ?? "", $"%{request.SearchTerm}%"));
         }
 
         // Get total count
@@ -270,6 +277,120 @@ internal class ReportService(
         {
             Items = items,
             TotalCount = totalCount
+        };
+    }
+
+    public async Task<StockCardViewModel> GetStockCardAsync(
+        int productId,
+        DateTime? startDate = null,
+        DateTime? endDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        var product = await dbContext.Products
+            .Where(p => p.Id == productId)
+            .Select(p => new { p.Id, p.Name, p.Code, p.CurrentStock })
+            .AsNoTracking()
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (product == null)
+            throw new NotFoundException($"Product with ID {productId} not found.");
+
+        var stockInQuery = dbContext.Set<StockInOperation>()
+            .Where(o => o.ProductId == productId);
+
+        var stockOutQuery = dbContext.Set<StockOutOperation>()
+            .Where(o => o.ProductId == productId);
+
+        if (startDate.HasValue)
+        {
+            stockInQuery = stockInQuery.Where(o => o.Date >= startDate.Value);
+            stockOutQuery = stockOutQuery.Where(o => o.Date >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            stockInQuery = stockInQuery.Where(o => o.Date <= endDate.Value);
+            stockOutQuery = stockOutQuery.Where(o => o.Date <= endDate.Value);
+        }
+
+        int initialBalance = 0;
+        if (startDate.HasValue)
+        {
+            var totalStockInBefore = await dbContext.Set<StockInOperation>()
+                .Where(o => o.ProductId == productId && o.Date < startDate.Value)
+                .SumAsync(o => (int?)o.Quantity, cancellationToken) ?? 0;
+
+            var totalStockOutBefore = await dbContext.Set<StockOutOperation>()
+                .Where(o => o.ProductId == productId && o.Date < startDate.Value)
+                .SumAsync(o => (int?)o.Quantity, cancellationToken) ?? 0;
+
+            initialBalance = totalStockInBefore - totalStockOutBefore;
+        }
+
+        var stockInOps = await stockInQuery
+            .Select(o => new StockCardRowViewModel
+            {
+                Date = o.Date,
+                Type = OperationType.StockIn,
+                SupplierName = o.Supplier!.Name,
+                Quantity = o.Quantity,
+                CreatedAt = o.CreatedAt
+            })
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        var stockOutOps = await stockOutQuery
+            .Select(o => new StockCardRowViewModel
+            {
+                Date = o.Date,
+                Type = OperationType.StockOut,
+                EmployeeName = o.Employee!.FirstName + " " + o.Employee.LastName,
+                Quantity = o.Quantity,
+                CreatedAt = o.CreatedAt
+            })
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        var allOperations = stockInOps
+            .Concat(stockOutOps)
+            .OrderBy(o => o.Date)
+                .ThenBy(o => o.CreatedAt)
+            .ToList();
+
+        int runningBalance = initialBalance;
+        var rows = allOperations.Select(o => 
+        {
+            if (o.Type == OperationType.StockIn)
+            {
+                runningBalance += o.Quantity;
+            }
+            else
+            {
+                runningBalance -= o.Quantity;
+            }
+            o.Balance = runningBalance;
+            return o;
+        }).ToList();
+
+        var actualStartDate = allOperations.Count != 0
+            ? allOperations.Min(o => o.Date) 
+            : startDate ?? DateTime.Today;
+
+        var actualEndDate = allOperations.Count != 0
+            ? allOperations.Max(o => o.Date) 
+            : endDate ?? DateTime.Today;
+
+        return new StockCardViewModel
+        {
+            ProductId = product.Id,
+            ProductName = product.Name,
+            ProductCode = product.Code,
+            CurrentStockLevel = product.CurrentStock,
+            StartDate = actualStartDate,
+            EndDate = actualEndDate,
+            Rows = rows,
+            TotalRows = rows.Count,
+            InitialBalance = initialBalance
         };
     }
 

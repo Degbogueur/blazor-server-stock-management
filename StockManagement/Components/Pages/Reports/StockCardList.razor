@@ -29,14 +29,15 @@
         <PropertyColumn Property="x => x.TotalStockOut" Title="Total Out" />
         <TemplateColumn CellClass="d-flex justify-end">
             <CellTemplate>
-                <MudTooltip Text="View stock card details">
-                    <MudIconButton Class="me-2"
-                                   Variant="Variant.Outlined"
-                                   Icon="@Icons.Material.Filled.TableView"
-                                   Color="Color.Info"
-                                   Size="Size.Small"
-                                   OnClick="() => ShowStockCard(context)" />
-                </MudTooltip>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Info"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.TableView"
+                           OnClick="() => ShowStockCard(context)">
+                    <MudText>
+                        View stock card
+                    </MudText>
+                </MudButton>
             </CellTemplate>
         </TemplateColumn>
     </Columns>
