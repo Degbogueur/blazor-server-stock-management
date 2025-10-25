@@ -223,11 +223,11 @@
 
     private SearchProductResultViewModel? selectedProduct;
     private SearchResultViewModel? selectedSupplier;
-    private DateTime? operationDate = DateTime.Now;
+    private DateTime? operationDate = DateTime.UtcNow;
 
     protected override async Task OnInitializedAsync()
     {
-        currentOperation.Date = DateTime.Now;
+        currentOperation.Date = DateTime.UtcNow;
         topProducts = await ProductService.SearchProductsAsync(string.Empty, CancellationToken.None, maxResults: 100);
         topSuppliers = await SupplierService.SearchSuppliersAsync(string.Empty, CancellationToken.None, maxResults: 100);
     }
@@ -313,7 +313,7 @@
 
     private async Task AddOperation()
     {
-        currentOperation.Date = operationDate ?? DateTime.Now;
+        currentOperation.Date = operationDate ?? DateTime.UtcNow;
 
         await form.Validate();
 
@@ -354,11 +354,11 @@
 
         if (!lockDate)
         {
-            operationDate = DateTime.Now;
+            operationDate = DateTime.UtcNow;
         }
 
         currentOperation.Quantity = 1;
-        currentOperation.Date = operationDate ?? DateTime.Now;
+        currentOperation.Date = operationDate ?? DateTime.UtcNow;
     }
 
     private async Task ResetForm()
@@ -371,9 +371,9 @@
 
         selectedProduct = null;
         selectedSupplier = null;
-        operationDate = DateTime.Now;
+        operationDate = DateTime.UtcNow;
 
-        currentOperation = new StockInOperationViewModel { Date = DateTime.Now };
+        currentOperation = new StockInOperationViewModel { Date = DateTime.UtcNow };
     }
 
     private void RemoveOperation(StockInOperationViewModel operation)

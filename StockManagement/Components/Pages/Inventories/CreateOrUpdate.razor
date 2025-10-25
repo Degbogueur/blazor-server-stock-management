@@ -10,16 +10,14 @@
 
 <PageTitle>@Title</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">@Title</MudText>
-
-<MudButton Variant="Variant.Filled"
-           Color="Color.Primary"
-           StartIcon="@Icons.Material.Filled.ArrowCircleLeft"
-           Size="Size.Small"
-           Class="mb-3"
-           OnClick="@(() => NavigationManager.NavigateTo("/inventories"))">
-    Back to Inventories
-</MudButton>
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudTooltip Text="Back to Inventories">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                       Color="Color.Primary"
+                       OnClick="@(() => NavigationManager.NavigateTo("/inventories"))" />
+    </MudTooltip>
+    <MudText Typo="Typo.h4">Stock inventory</MudText>
+</MudStack>
 
 @if (inventoryRows == null)
 {

@@ -94,7 +94,7 @@ internal class ProductService(
     public IQueryable<ProductViewModel> GetProductsListQuery()
     {
         return dbContext.Products
-            .OrderBy(p => p.Id)
+            .OrderBy(p => p.Name)
             .Select(p => new ProductViewModel
             {
                 Id = p.Id,
@@ -104,8 +104,7 @@ internal class ProductService(
                 MinimumStockLevel = p.MinimumStockLevel,
                 CategoryName = p.Category != null ? p.Category.Name : string.Empty
             })
-            .AsNoTracking()
-            .AsQueryable();
+            .AsNoTracking();
     }
 
     public async Task<List<SearchProductResultViewModel>> SearchProductsAsync(
