@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Blazor-ApexCharts" Version="6.0.2" />
     <PackageReference Include="Extensions.MudBlazor.StaticInput" Version="3.2.1" />
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.21" />
     <PackageReference Include="Hangfire.PostgreSql" Version="1.20.12" />

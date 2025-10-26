@@ -38,6 +38,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<IReportPdfService, ReportPdfService>();
         services.AddScoped<IStockSnapshotService, StockSnapshotService>();
+        services.AddScoped<IDashboardService, DashboardService>();
     }
 
     public static void AddAuthenticationServices(this IServiceCollection services)
