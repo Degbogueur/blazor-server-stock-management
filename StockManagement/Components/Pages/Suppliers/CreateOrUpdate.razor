@@ -1,0 +1,108 @@
+﻿@using StockManagement.ViewModels.Suppliers
+
+@inject ISupplierService SupplierService
+@inject ISnackbar Snackbar
+
+@rendermode InteractiveServer
+
+<EditForm Model="@Model" OnValidSubmit="OnValidSubmit">
+    <MudDialog>
+        <DialogContent>
+            <DataAnnotationsValidator />
+            <MudTextField InputType="InputType.Hidden" @bind-Value="Model.Id" />
+            <MudTextField Label="Name *"
+                          Class="mb-4"
+                          @bind-Value="Model.Name"
+                          For="() => Model.Name"
+                          Variant="Variant.Outlined"
+                          ShrinkLabel />
+            <MudTextField Label="Phone number *"
+                          Class="mb-4"
+                          @bind-Value="Model.PhoneNumber"
+                          For="() => Model.PhoneNumber"
+                          Variant="Variant.Outlined"
+                          ShrinkLabel />
+            <MudTextField Label="Email"
+                          Class="mb-4"
+                          @bind-Value="Model.Email"
+                          For="() => Model.Email"
+                          Variant="Variant.Outlined"
+                          ShrinkLabel />
+            <MudTextField Label="Address"
+                          @bind-Value="Model.Address"
+                          For="() => Model.Address"
+                          Lines="3"
+                          Variant="Variant.Outlined"
+                          ShrinkLabel />
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary">Save</MudButton>
+        </DialogActions>
+    </MudDialog>
+</EditForm>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public CreateOrUpdateSupplierViewModel Model { get; set; }
+
+    private async Task OnValidSubmit(EditContext context)
+    {
+        if (Model.Id.HasValue && Model.Id != 0)
+            await UpdateSupplier();
+
+        else await CreateSupplier();
+    }
+
+    private async Task CreateSupplier()
+    {
+        try
+        {
+            var result = await SupplierService.AddNewSupplierAsync(Model);
+
+            if (result)
+            {
+                Snackbar.Add("New supplier added successfully", Severity.Success);
+                MudDialog.Close();
+            }
+            else
+            {
+                Snackbar.Add("Error adding new supplier", Severity.Error);
+            }
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task UpdateSupplier()
+    {
+        try
+        {
+            var result = await SupplierService.UpdateSupplierAsync(Model);
+
+            if (result)
+            {
+                Snackbar.Add("Supplier updated successfully", Severity.Success);
+                MudDialog.Close();
+            }
+            else
+            {
+                Snackbar.Add("Error updating supplier", Severity.Error);
+            }
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

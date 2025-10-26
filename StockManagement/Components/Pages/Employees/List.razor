@@ -1,0 +1,195 @@
+﻿@page "/employees"
+
+@using StockManagement.ViewModels.Employees
+
+@inject IEmployeeService EmployeeService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>List of employees</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Employees</MudText>
+
+<MudDataGrid @ref="dataGrid" T="EmployeeViewModel" ServerData="ServerReload" Filterable="false">
+    <ToolBarContent>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" @onclick="CreateEmployee">
+            Add new employee
+        </MudButton>
+        <MudSpacer />
+        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Immediate="true" Placeholder="Search"
+                      Adornment="Adornment.Start" DebounceInterval="300"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.FirstName" Title="First name" />
+        <PropertyColumn Property="x => x.LastName" Title="Last name" />
+        <PropertyColumn Property="x => x.Position">
+            <CellTemplate>
+                @(context.Item.Position ?? "-")
+            </CellTemplate>
+        </PropertyColumn>
+        <TemplateColumn CellClass="d-flex justify-end">
+            <CellTemplate>
+                <MudIconButton Class="me-2"
+                               Variant="Variant.Outlined"
+                               Icon="@Icons.Material.Filled.Edit"
+                               Color="Color.Info"
+                               Size="Size.Small"
+                               @onclick="() => UpdateEmployee(context)" />
+                <MudIconButton Variant="Variant.Outlined"
+                               Icon="@Icons.Material.Filled.Delete"
+                               Color="Color.Error"
+                               Size="Size.Small"
+                               @onclick="() => DeleteEmployee(context)" />
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-2">
+            No employees found.
+        </MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="EmployeeViewModel" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    MudDataGrid<EmployeeViewModel> dataGrid = new MudDataGrid<EmployeeViewModel>();
+    string? searchString = null;
+
+    private async Task<GridData<EmployeeViewModel>> ServerReload(GridState<EmployeeViewModel> state)
+    {
+        IEnumerable<EmployeeViewModel> data = await EmployeeService.GetEmployeesListAsync();
+
+        data = data.Where(element =>
+        {
+            if (string.IsNullOrWhiteSpace(searchString))
+                return true;
+            if (element.FullName.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (!string.IsNullOrEmpty(element.Position) &&
+                element.Position.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+                return true;
+            return false;
+        }).ToArray();
+        var totalItems = data.Count();
+
+        var sortDefinition = state.SortDefinitions.FirstOrDefault();
+        if (sortDefinition != null)
+        {
+            switch (sortDefinition.SortBy)
+            {
+                case nameof(EmployeeViewModel.FirstName):
+                    data = data.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.FirstName
+                    );
+                    break;
+                case nameof(EmployeeViewModel.LastName):
+                    data = data.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.LastName
+                    );
+                    break;
+                case nameof(EmployeeViewModel.Position):
+                    data = data.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.Position
+                    );
+                    break;
+            }
+        }
+
+        var pagedData = data.Skip(state.Page * state.PageSize).Take(state.PageSize).ToArray();
+        return new GridData<EmployeeViewModel>
+        {
+            TotalItems = totalItems,
+            Items = pagedData
+        };
+    }
+
+    private Task OnSearch(string text)
+    {
+        searchString = text;
+        return dataGrid.ReloadServerData();
+    }
+
+    private async Task CreateEmployee()
+    {
+        var parameters = new DialogParameters<CreateOrUpdate>
+    {
+            { x => x.Model, new CreateOrUpdateEmployeeViewModel() }
+        };
+        var dialog = await DialogService.ShowAsync<CreateOrUpdate>("Add new employee", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            await dataGrid.ReloadServerData();
+        }
+    }
+
+    private async Task UpdateEmployee(CellContext<EmployeeViewModel> context)
+    {
+        var updateViewModel = new CreateOrUpdateEmployeeViewModel
+        {
+            Id = context.Item.Id,
+            FirstName = context.Item.FirstName,
+            LastName = context.Item.LastName,
+            Position = context.Item.Position
+        };
+
+        if (updateViewModel is null)
+        {
+            Snackbar.Add("Something went wrong while trying to get data", Severity.Warning);
+            return;
+        }
+
+        var parameters = new DialogParameters<CreateOrUpdate>
+    {
+            { x => x.Model, updateViewModel }
+        };
+        var dialog = await DialogService.ShowAsync<CreateOrUpdate>("Update employee", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            await dataGrid.ReloadServerData();
+        }
+    }
+
+    private async Task DeleteEmployee(CellContext<EmployeeViewModel> context)
+    {
+        var parameters = new DialogParameters<ConfirmationDialog>
+    {
+            { x => x.ContentText, "Do you really want to remove this employee ? This action cannot be undone." },
+            { x => x.ButtonText, "Remove" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>(
+            $"Remove: {context.Item.FullName}",
+            parameters);
+
+        var result = await dialog.Result;
+
+        if (result?.Canceled != false || result.Data is not true)
+            return;
+
+        try
+        {
+            bool isDeleted = await EmployeeService.DeleteEmployeeAsync(context.Item.Id);
+
+            if (isDeleted)
+            {
+                Snackbar.Add($"Employee  '{context.Item.FullName}' successfully removed", Severity.Success);
+                await dataGrid.ReloadServerData();
+            }
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

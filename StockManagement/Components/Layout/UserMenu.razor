@@ -1,0 +1,64 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+@using System.Security.Claims
+@using StockManagement.Extensions
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+
+<AuthorizeView>
+    <Authorized>
+        <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="false">
+            <ActivatorContent>
+                <MudChip T="string" Icon="@Icons.Material.Filled.AccountCircle" Size="Size.Large"
+                         Color="Color.Primary"
+                         Variant="Variant.Text"
+                         Style="color: white;">
+                    @fullName
+                </MudChip>
+            </ActivatorContent>
+            <ChildContent>
+                <MudStack Style="width: 200px" Spacing="0">
+                    <MudMenuItem Icon="@Icons.Material.Filled.AccountCircle">
+                        Profile
+                    </MudMenuItem>
+                    <MudMenuItem Icon="@Icons.Material.Filled.Settings">
+                        Settings
+                    </MudMenuItem>
+                    <MudDivider />
+                    <MudMenuItem Icon="@Icons.Material.Filled.Logout"
+                                 OnClick="LogoutAsync">
+                        Logout
+                    </MudMenuItem>
+                </MudStack>
+            </ChildContent>
+        </MudMenu>
+    </Authorized>
+    <NotAuthorized>
+        <MudButton Href="Account/Login"
+                   Variant="Variant.Text"
+                   Color="Color.Inherit"
+                   StartIcon="@Icons.Material.Filled.Login">
+            Login
+        </MudButton>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private string fullName = "User";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        if (user.Identity?.IsAuthenticated == true)
+        {
+            fullName = user.GetUserFullName();
+        }
+    }
+
+    private void LogoutAsync()
+    {
+        NavigationManager.NavigateTo("Account/Logout", forceLoad: true);
+    }
+}

@@ -1,0 +1,478 @@
+﻿@page "/stock-out"
+
+@using StockManagement.ViewModels
+@using StockManagement.ViewModels.Operations
+
+@inject IProductService ProductService
+@inject IEmployeeService EmployeeService
+@inject IOperationService OperationService
+@inject INotificationService NotificationService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+
+<PageTitle>New stock withdrawal operation</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Stock management: Stock out</MudText>
+
+<MudPaper Class="pa-4 mb-4">
+    <MudForm @ref="form" @bind-IsValid="@isFormValid" ValidationDelay="0">
+        <MudGrid>
+            <MudItem xs="12" Class="mb-2">
+                <MudStack Row="true" Spacing="3">
+                    <MudSwitch @bind-Value="lockProduct"
+                               Color="Color.Primary"
+                               Label="Lock Product"
+                               Size="Size.Small"
+                               Disabled="selectedProduct == null" />
+                    <MudSwitch @bind-Value="lockEmployee"
+                               Color="Color.Primary"
+                               Label="Lock Employee"
+                               Size="Size.Small"
+                               Disabled="selectedEmployee == null" />
+                    <MudSwitch @bind-Value="lockDate"
+                               Color="Color.Primary"
+                               Label="Lock Date"
+                               Size="Size.Small"
+                               Disabled="!operationDate.HasValue" />
+                </MudStack>
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudAutocomplete T="SearchProductResultViewModel"
+                                     Label="Product"
+                                     Value="selectedProduct"
+                                     SearchFunc="SearchProducts"
+                                     ToStringFunc="p => p?.Text ?? string.Empty"
+                                     Required="true"
+                                     RequiredError="The product field is required"
+                                     Variant="Variant.Outlined"
+                                     ResetValueOnEmptyText="true"
+                                     Clearable="true"
+                                     DebounceInterval="300"
+                                     ValueChanged="OnProductSelected"
+                                     Disabled="@lockProduct"
+                                     Adornment="Adornment.End"
+                                     AdornmentIcon="@(lockProduct ? Icons.Material.Filled.Lock : default)"
+                                     AdornmentColor="Color.Default">
+
+                        <ItemTemplate Context="product">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudText>@product.Text</MudText>
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="Color.Info"
+                                         Variant="Variant.Outlined"
+                                         Class="ml-2">
+                                    @product.Quantity
+                                </MudChip>
+                            </MudStack>
+                        </ItemTemplate>
+                    </MudAutocomplete>
+                </MudStack>
+                @if (selectedProduct != null)
+                {
+                    var availableStock = GetAvailableStock();
+                    <MudChip T="string" Variant="Variant.Outlined" Color="@(availableStock > 0 ? Color.Info : Color.Error)">
+                        Available : @availableStock units
+                    </MudChip>
+                }
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudAutocomplete T="SearchResultViewModel"
+                                     Label="Employee"
+                                     Value="selectedEmployee"
+                                     SearchFunc="SearchEmployees"
+                                     ToStringFunc="s => s?.Text ?? string.Empty"
+                                     Required="true"
+                                     RequiredError="The employee field is required"
+                                     Variant="Variant.Outlined"
+                                     ResetValueOnEmptyText="true"
+                                     Clearable="true"
+                                     MinCharacters="0"
+                                     DebounceInterval="300"
+                                     ValueChanged="OnEmployeeSelected"
+                                     Disabled="@lockEmployee"
+                                     Adornment="Adornment.End"
+                                     AdornmentIcon="@(lockEmployee ? Icons.Material.Filled.Lock : default)"
+                                     AdornmentColor="Color.Default">
+                    </MudAutocomplete>
+                </MudStack>
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudNumericField @bind-Value="currentOperation.Quantity"
+                                 Label="Quantity"
+                                 Variant="Variant.Outlined"
+                                 Required="true"
+                                 Immediate="true"
+                                 Validation="new Func<int, string?>(ValidateQuantity)"
+                                 For="() => currentOperation.Quantity" />
+            </MudItem>
+
+            <MudItem xs="12" md="3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudDatePicker @bind-Date="operationDate"
+                                   Label="Date"
+                                   Variant="Variant.Outlined"
+                                   Required="true"
+                                   MaxDate="DateTime.Today"
+                                   Disabled="@lockDate"
+                                   Adornment="Adornment.End"
+                                   AdornmentIcon="@(lockDate ? Icons.Material.Filled.Lock : Icons.Material.Filled.Today)"
+                                   AdornmentColor="Color.Default">
+                    </MudDatePicker>
+                </MudStack>
+            </MudItem>
+
+            <MudItem xs="12" Class="d-flex justify-end gap-2">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           OnClick="ResetForm"
+                           StartIcon="@Icons.Material.Filled.Refresh">
+                    Reset
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           OnClick="AddOperation"
+                           Disabled="@(!CanAddOperation())"
+                           StartIcon="@Icons.Material.Filled.Add">
+                    Add to list
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudForm>
+</MudPaper>
+
+<MudPaper Class="pa-4">
+    <MudText Typo="Typo.h6" Class="mb-3">Pending operations (@pendingOperations.Count)</MudText>
+
+    <MudTable Items="@pendingOperations" Hover="true" Striped="true" Dense="true" Bordered="true" Elevation="0">
+        <HeaderContent>
+            <MudTh>Product</MudTh>
+            <MudTh>Employee</MudTh>
+            <MudTh>Quantity</MudTh>
+            <MudTh>Date</MudTh>
+            <MudTh Class="d-flex justify-end">Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Product">@context.ProductName</MudTd>
+            <MudTd DataLabel="Employee">@context.EmployeeName</MudTd>
+            <MudTd DataLabel="Quantity">@context.Quantity</MudTd>
+            <MudTd DataLabel="Date">@context.Date.ToShortDateString()</MudTd>
+            <MudTd DataLabel="Actions" Class="d-flex justify-end">
+                <MudIconButton Icon="@Icons.Material.Filled.Delete"
+                               Color="Color.Error"
+                               Size="Size.Small"
+                               OnClick="() => RemoveOperation(context)" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Typo="Typo.body2" Align="Align.Center" Class="py-4">
+                No pending operations. Use the form above to add operations.
+            </MudText>
+        </NoRecordsContent>
+    </MudTable>
+
+    @if (pendingOperations.Any())
+    {
+        <MudStack Class="mt-4" Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudText Typo="Typo.body1">
+                <strong>Total items:</strong> @pendingOperations.Sum(o => o.Quantity) units
+            </MudText>
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           OnClick="ClearAll"
+                           StartIcon="@Icons.Material.Filled.Clear">
+                    Clear all
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Success"
+                           OnClick="SaveAllOperations"
+                           Disabled="@isSaving"
+                           StartIcon="@Icons.Material.Filled.Save">
+                    @if (isSaving)
+                    {
+                        <MudProgressCircular Class="mr-2" Size="Size.Small" Indeterminate="true" />
+                        <span>Processing...</span>
+                    }
+                    else
+                    {
+                        <span>Save all (@pendingOperations.Count)</span>
+                    }
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    }
+</MudPaper>
+
+@code {
+    private MudForm form = null!;
+    private bool isFormValid;
+    private bool isSaving;
+
+    private bool lockProduct;
+    private bool lockEmployee;
+    private bool lockDate = true;
+
+    private StockOutOperationViewModel currentOperation = new();
+    private List<StockOutOperationViewModel> pendingOperations = new();
+
+    private List<SearchProductResultViewModel> topProducts = new();
+    private List<SearchResultViewModel> topEmployees = new();
+
+    private SearchProductResultViewModel? selectedProduct;
+    private SearchResultViewModel? selectedEmployee;
+    private DateTime? operationDate = DateTime.UtcNow;
+
+    protected override async Task OnInitializedAsync()
+    {
+        currentOperation.Date = DateTime.UtcNow;
+        topProducts = await ProductService.SearchProductsAsync(string.Empty, CancellationToken.None, maxResults: 100);
+        topEmployees = await EmployeeService.SearchEmployeesAsync(string.Empty, CancellationToken.None, maxResults: 100);
+    }
+
+    private void OnProductSelected(SearchProductResultViewModel? product)
+    {
+        selectedProduct = product;
+        if (product != null)
+        {
+            currentOperation.ProductId = product.Id;
+            currentOperation.ProductName = product.Text;
+        }
+        else
+        {
+            currentOperation.ProductId = 0;
+            currentOperation.ProductName = string.Empty;
+        }
+    }
+
+    private void OnEmployeeSelected(SearchResultViewModel? employee)
+    {
+        selectedEmployee = employee;
+        if (employee != null)
+        {
+            currentOperation.EmployeeId = employee.Id;
+            currentOperation.EmployeeName = employee.Text;
+        }
+        else
+        {
+            currentOperation.EmployeeId = 0;
+            currentOperation.EmployeeName = string.Empty;
+        }
+    }
+
+    private async Task<IEnumerable<SearchProductResultViewModel>> SearchProducts(string value, CancellationToken token = default)
+    {
+        value ??= string.Empty;
+        var result = topProducts
+            .Where(p => p.Text.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (result.Count == 0 && !string.IsNullOrWhiteSpace(value))
+        {
+            result = await ProductService.SearchProductsAsync(value, token, maxResults: 10);
+        }
+
+        return result;
+    }
+
+    private async Task<IEnumerable<SearchResultViewModel>> SearchEmployees(string value, CancellationToken token = default)
+    {
+        value ??= string.Empty;
+        var result = topEmployees
+            .Where(s => s.Text.Contains(value, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (result.Count == 0 && !string.IsNullOrWhiteSpace(value))
+        {
+            result = await EmployeeService.SearchEmployeesAsync(value, token, maxResults: 10);
+        }
+
+        return result;
+    }
+
+    private int GetAvailableStock()
+    {
+        if (selectedProduct == null) return 0;
+
+        var pendingSum = pendingOperations
+            .Where(o => o.ProductId == selectedProduct.Id)
+            .Sum(o => o.Quantity);
+
+        return selectedProduct.Quantity - pendingSum;
+    }
+
+    private string? ValidateQuantity(int quantity)
+    {
+        if (quantity <= 0)
+            return "Quantity must be greater than 0";
+
+        if (selectedProduct == null) return null;
+
+        var availableStock = GetAvailableStock();
+
+        if (quantity > availableStock)
+        {
+            return availableStock == 0
+                ? "No stock available for this product"
+                : $"Insufficient stock. Only {availableStock} unit{(availableStock > 1 ? "s" : "")} available";
+        }
+
+        return null;
+    }
+
+    private bool CanAddOperation()
+    {
+        return isFormValid
+            && currentOperation.ProductId > 0
+            && currentOperation.EmployeeId > 0
+            && currentOperation.Quantity > 0
+            && CheckStockAvailability();
+    }
+
+    private bool CheckStockAvailability()
+    {
+        if (selectedProduct == null) return false;
+
+        var availableStock = GetAvailableStock();
+
+        return availableStock >= currentOperation.Quantity;
+    }
+
+    private async Task AddOperation()
+    {
+        currentOperation.Date = operationDate ?? DateTime.UtcNow;
+
+        await form.Validate();
+
+        if (!CanAddOperation())
+        {
+            Snackbar.Add("Please fill in all required fields", Severity.Warning);
+            return;
+        }
+
+        pendingOperations.Add(new StockOutOperationViewModel
+        {
+            ProductId = currentOperation.ProductId,
+            ProductName = currentOperation.ProductName,
+            EmployeeId = currentOperation.EmployeeId,
+            EmployeeName = currentOperation.EmployeeName,
+            Quantity = currentOperation.Quantity,
+            Date = currentOperation.Date
+        });
+
+        ResetUnlockedFields();
+    }
+
+    private void ResetUnlockedFields()
+    {
+        if (!lockProduct)
+        {
+            selectedProduct = null;
+            currentOperation.ProductId = 0;
+            currentOperation.ProductName = string.Empty;
+        }
+
+        if (!lockEmployee)
+        {
+            selectedEmployee = null;
+            currentOperation.EmployeeId = 0;
+            currentOperation.EmployeeName = string.Empty;
+        }
+
+        if (!lockDate)
+        {
+            operationDate = DateTime.UtcNow;
+        }
+
+        currentOperation.Quantity = 0;
+        currentOperation.Date = operationDate ?? DateTime.UtcNow;
+    }
+
+    private async Task ResetForm()
+    {
+        await form.ResetAsync();
+
+        lockProduct = false;
+        lockEmployee = false;
+        lockDate = true;
+
+        selectedProduct = null;
+        selectedEmployee = null;
+        operationDate = DateTime.UtcNow;
+
+        currentOperation = new StockOutOperationViewModel { Date = DateTime.UtcNow };
+    }
+
+    private async Task RemoveOperation(StockOutOperationViewModel operation)
+    {
+        pendingOperations.Remove(operation);
+        await form.Validate();
+    }
+
+    private void ClearAll()
+    {
+        pendingOperations.Clear();
+        Snackbar.Add("List cleared", Severity.Info);
+    }
+
+    private async Task SaveAllOperations()
+    {
+        int pendingOperationsCount = pendingOperations.Count;
+        isSaving = true;
+
+        var parameters = new DialogParameters<ConfirmationDialog>
+    {
+            { x => x.ContentText, "Do you really want to save all operations ?" },
+            { x => x.ButtonText, "Confirm" },
+            { x => x.Color, Color.Success }
+        };
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>("Save operations", parameters);
+        var result = await dialog.Result;
+
+        if (result?.Canceled != false || result.Data is not true)
+        {
+            isSaving = false;
+            return;
+        }
+
+        try
+        {
+            var saveResult = await OperationService.SaveStockOutOperationsAsync(pendingOperations);
+
+            Snackbar.Add($"{pendingOperationsCount} operation{(pendingOperations.Count > 1 ? "s" : "")} saved successfully", Severity.Success);
+
+            if (saveResult.Alerts.Count != 0)
+            {
+                await NotificationService.AddStockAlertsAsync(saveResult.Alerts);
+
+                var alertParameters = new DialogParameters<StockAlertDialog>
+            {
+                    { x => x.Alerts, saveResult.Alerts }
+                };
+                await DialogService.ShowAsync<StockAlertDialog>("Stock Alerts", alertParameters);
+            }
+
+            pendingOperations.Clear();
+            await ResetForm();
+
+            NavigationManager.NavigateTo("/stock-operations");
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add($"Error while saving operations", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

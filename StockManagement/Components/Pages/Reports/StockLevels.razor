@@ -1,0 +1,111 @@
+﻿@page "/stock-levels"
+
+@using StockManagement.ViewModels.Products
+@using StockManagement.ViewModels.Requests
+
+@inject IReportService ReportService
+
+<PageTitle>@pageTitle</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">@pageTitle</MudText>
+
+<MudPaper Class="mb-4" Elevation="0">
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="3">
+            <MudDatePicker Label="Stock date"
+                           Date="selectedDate"
+                           Clearable="true"
+                           DateChanged="OnDateChanged"
+                           Variant="Variant.Outlined"
+                           MaxDate="DateTime.Today" />
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+<MudDataGrid @ref="dataGrid" T="ProductViewModel" ServerData="LoadServerData" Filterable="true">
+    <ToolBarContent>
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                   StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                   Class="ml-2">
+            Export to PDF
+        </MudButton>
+        <MudSpacer />
+        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Immediate="true" DebounceInterval="300"
+                      Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.Code" />
+        <PropertyColumn Property="x => x.Name" />
+        <PropertyColumn Property="x => x.CurrentStock" Title="Stock" />
+        <PropertyColumn Property="x => x.MinimumStockLevel" Title="Min Stock Level" />
+        <TemplateColumn Title="Status" Sortable="false" Filterable="false">
+            <CellTemplate>
+                @if (context.Item.CurrentStock < context.Item.MinimumStockLevel)
+                {
+                    <MudChip Color="Color.Warning" Size="Size.Small">Low</MudChip>
+                }
+                else
+                {
+                    <MudChip Color="Color.Success" Size="Size.Small">Normal</MudChip>
+                }
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-2">
+            No products found.
+        </MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="ProductViewModel" />
+    </PagerContent>
+</MudDataGrid>
+
+
+@code {
+    private MudDataGrid<ProductViewModel> dataGrid = new();
+    private DateTime? selectedDate;
+    private string? searchTerm;
+    private string pageTitle = "Current Stock Levels";
+
+    private async Task OnDateChanged(DateTime? newDate)
+    {
+        selectedDate = newDate;
+        pageTitle = !selectedDate.HasValue ? "Current Stock Levels" : $"Stock Levels as of {selectedDate.Value.ToShortDateString()}";
+        await dataGrid.ReloadServerData();
+    }
+
+    private async Task<GridData<ProductViewModel>> LoadServerData(GridState<ProductViewModel> state)
+    {
+        // Extraire le tri
+        var sortDef = state.SortDefinitions.FirstOrDefault();
+        var sortBy = sortDef?.SortBy;
+        var sortDescending = sortDef?.Descending ?? false;
+
+        // Créer la requête
+        var request = new DataGridRequest
+        {
+            Page = state.Page,
+            PageSize = state.PageSize,
+            SearchTerm = searchTerm,
+            SortBy = sortBy,
+            SortDescending = sortDescending
+        };
+
+        // Appeler le service
+        var response = await ReportService.GetStockLevelsAsync(request, selectedDate);
+
+        return new GridData<ProductViewModel>
+        {
+            Items = response.Items,
+            TotalItems = response.TotalCount
+        };
+    }
+
+    private Task OnSearch(string text)
+    {
+        searchTerm = text;
+        return dataGrid.ReloadServerData();
+    }
+}

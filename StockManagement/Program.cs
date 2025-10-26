@@ -1,10 +1,32 @@
+using Hangfire;
+using MudBlazor.Services;
 using StockManagement.Components;
+using StockManagement.Components.Account;
+using StockManagement.Extensions;
+using StockManagement.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddDatabaseConnection(builder.Configuration);
+builder.Services.AddDependencyInjectionContainer();
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddAuthenticationServices();
+
+builder.Services.AddMudServices();
+
+builder.Services.AddSettings(builder.Configuration);
+
+builder.Services.AddClaimsPrincipalFactory();
+
+builder.Services.AddHangfireConfiguration(builder.Configuration);
+
+builder.Services.AddControllers();
 
 var app = builder.Build();
 
@@ -16,6 +38,9 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+await app.AddDefaultRolesAsync();
+await app.AddAdminUserAsync();
+
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
@@ -23,5 +48,13 @@ app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+app.MapAdditionalIdentityEndpoints();
+
+app.AddHangfireDashboard();
+
+app.MapControllers();
+
+HangfireJobsService.ConfigureRecurringJobs();
 
 app.Run();

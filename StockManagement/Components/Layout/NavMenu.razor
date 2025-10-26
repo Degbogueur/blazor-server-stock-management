@@ -1,0 +1,50 @@
+﻿<MudNavMenu>
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+        Dashboard
+    </MudNavLink>
+
+    <MudNavLink Href="/products" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Inventory2">
+        Products
+    </MudNavLink>
+
+    <MudNavLink Href="/employees" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.People">
+        Employees
+    </MudNavLink>
+
+    <MudNavLink Href="/suppliers" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.LocalShipping">
+        Suppliers
+    </MudNavLink>
+
+    <MudNavLink Href="/categories" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Category">
+        Categories
+    </MudNavLink>
+
+    <MudNavGroup Title="Stock Management" Expanded="true" Icon="@Icons.Material.Filled.MoveToInbox">
+        <MudNavLink Href="/stock-in" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Add">
+            Stock In
+        </MudNavLink>
+        <MudNavLink Href="/stock-out" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Remove">
+            Stock Out
+        </MudNavLink>
+    </MudNavGroup>
+
+    <MudNavLink Href="/inventories" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ListAlt">
+        Inventories
+    </MudNavLink>
+
+    <MudNavGroup Title="Reports" Expanded="true" Icon="@Icons.Material.Filled.Assessment">
+        <MudNavLink Href="/stock-levels" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.BarChart">
+            Stock Levels
+        </MudNavLink>
+        <MudNavLink Href="/stock-operations" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.CompareArrows">
+            Stock Operations
+        </MudNavLink>
+        <MudNavLink Href="/stock-card" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ReceiptLong">
+            Stock Card
+        </MudNavLink>
+    </MudNavGroup>
+
+    @*<MudNavLink Href="/settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Settings">
+        Settings
+    </MudNavLink>*@
+</MudNavMenu>

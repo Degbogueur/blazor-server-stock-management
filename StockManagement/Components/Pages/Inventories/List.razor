@@ -1,0 +1,247 @@
+﻿@page "/inventories"
+
+@using StockManagement.ViewModels.Inventories
+@using StockManagement.Models
+
+@inject IInventoryService InventoryService
+@inject NavigationManager NavigationManager
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Inventory history</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">History</MudText>
+
+<MudDataGrid @ref="dataGrid" T="InventoryViewModel" ServerData="ServerReload" Filterable="false">
+    <ToolBarContent>
+        <MudButton Href="/inventories/save" Variant="Variant.Filled" Color="Color.Primary">
+            New inventory
+        </MudButton>
+        <MudSpacer />
+        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Immediate="true" DebounceInterval="300"
+                      Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.Code" />
+        <PropertyColumn Property="x => x.Date">
+            <CellTemplate>
+                @context.Item.Date.ToShortDateString()
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.Status">
+            <CellTemplate>
+                @{
+                    var (color, icon, label) = GetStatusDisplay(context.Item.Status);
+                }
+                <MudChip Color="@color" Icon="@icon" Size="Size.Small" Variant="Variant.Filled">
+                    @label
+                </MudChip>
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.TotalExpectedUnits" Title="Total expected">
+            <CellTemplate>
+                @context.Item.TotalExpectedUnits units
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.TotalCountedUnits" Title="Total counted">
+            <CellTemplate>
+                @context.Item.TotalCountedUnits units
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.Variance">
+            <CellTemplate>
+                @if (context.Item.Variance == 0)
+                {
+                    <MudChip Color="Color.Success" Size="Size.Small" Variant="Variant.Text">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Class="me-1" />
+                        Balanced
+                    </MudChip>
+                }
+                else if (context.Item.Variance > 0)
+                {
+                    <MudChip Color="Color.Info" Size="Size.Small" Variant="Variant.Text">
+                        <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Small" Class="me-1" />
+                        +@context.Item.Variance unit@(Math.Abs(context.Item.Variance) > 1 ? "s" : "")
+                    </MudChip>
+                }
+                else
+                {
+                    <MudChip Color="Color.Error" Size="Size.Small" Variant="Variant.Text">
+                        <MudIcon Icon="@Icons.Material.Filled.TrendingDown" Size="Size.Small" Class="me-1" />
+                        @context.Item.Variance unit@(Math.Abs(context.Item.Variance) > 1 ? "s" : "")
+                    </MudChip>
+                }
+            </CellTemplate>
+        </PropertyColumn>
+        <TemplateColumn CellClass="">
+            <CellTemplate>
+                @if (context.Item.Status == InventoryStatus.Pending)
+                {
+                    <MudTooltip Text="Edit">
+                        <MudIconButton Class="me-2"
+                                       Variant="Variant.Outlined"
+                                       Icon="@Icons.Material.Filled.Edit"
+                                       Color="Color.Info"
+                                       Size="Size.Small"
+                                       OnClick="@(() => NavigationManager.NavigateTo($"/inventories/save/{context.Item.Id}"))" />
+                    </MudTooltip>
+                    <MudTooltip Text="Delete">
+                        <MudIconButton Variant="Variant.Outlined"
+                                       Icon="@Icons.Material.Filled.Delete"
+                                       Color="Color.Error"
+                                       Size="Size.Small"
+                                       OnClick="() => DeleteInventory(context)" />
+                    </MudTooltip>
+                }
+                else if (context.Item.Status == InventoryStatus.Completed)
+                {
+                    <MudTooltip Text="View details">
+                        <MudIconButton Class="me-2"
+                                       Variant="Variant.Outlined"
+                                       Icon="@Icons.Material.Filled.Info"
+                                       Color="Color.Warning"
+                                       Size="Size.Small"
+                                       OnClick="@(() => NavigationManager.NavigateTo($"/inventories/details/{context.Item.Id}"))" />
+                    </MudTooltip>
+                }
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-2">
+            No inventories found.
+        </MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="InventoryViewModel" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    MudDataGrid<InventoryViewModel> dataGrid = new MudDataGrid<InventoryViewModel>();
+    string? searchString = null;
+
+    private (Color color, string icon, string label) GetStatusDisplay(InventoryStatus status)
+    {
+        return status switch
+        {
+            InventoryStatus.Pending => (Color.Warning, Icons.Material.Filled.Schedule, "Pending"),
+            InventoryStatus.Completed => (Color.Success, Icons.Material.Filled.CheckCircle, "Completed"),
+            InventoryStatus.Cancelled => (Color.Error, Icons.Material.Filled.Cancel, "Cancelled"),
+            _ => (Color.Default, Icons.Material.Filled.Help, "Unknown")
+        };
+    }
+
+    private async Task<GridData<InventoryViewModel>> ServerReload(GridState<InventoryViewModel> state)
+    {
+        var query = InventoryService.GetInventoriesListQuery();
+
+        if (!string.IsNullOrWhiteSpace(searchString))
+        {
+            query = query.Where(inventory =>
+               EF.Functions.ILike(inventory.Code, $"%{searchString}%") ||
+               EF.Functions.ILike(inventory.Date.ToString(), $"%{searchString}%") ||
+               EF.Functions.ILike(inventory.TotalExpectedUnits.ToString(), $"%{searchString}%") ||
+               EF.Functions.ILike(inventory.TotalCountedUnits.ToString(), $"%{searchString}%") ||
+               EF.Functions.ILike(inventory.Variance.ToString(), $"%{searchString}%")
+            );
+        }
+
+        var sortDefinition = state.SortDefinitions.FirstOrDefault();
+        if (sortDefinition != null)
+        {
+            switch (sortDefinition.SortBy)
+            {
+                case nameof(InventoryViewModel.Code):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.Code
+                    );
+                    break;
+                case nameof(InventoryViewModel.Date):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.Date
+                    );
+                    break;
+                case nameof(InventoryViewModel.Status):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.Status
+                    );
+                    break;
+                case nameof(InventoryViewModel.TotalExpectedUnits):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.TotalExpectedUnits
+                    );
+                    break;
+                case nameof(InventoryViewModel.TotalCountedUnits):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.TotalCountedUnits
+                    );
+                    break;
+                case nameof(InventoryViewModel.Variance):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.Variance
+                    );
+                    break;
+            }
+        }
+
+        var totalItems = await query.CountAsync();
+
+        var pagedData = await query
+            .Skip(state.Page * state.PageSize)
+            .Take(state.PageSize)
+            .ToListAsync();
+
+        return new GridData<InventoryViewModel>
+        {
+            TotalItems = totalItems,
+            Items = pagedData
+        };
+    }
+
+    private Task OnSearch(string text)
+    {
+        searchString = text;
+        return dataGrid.ReloadServerData();
+    }
+
+    private async Task DeleteInventory(CellContext<InventoryViewModel> context)
+    {
+        var parameters = new DialogParameters<ConfirmationDialog>
+        {
+            { x => x.ContentText, "Do you really want to delete this inventory ? This action cannot be undone." },
+            { x => x.ButtonText, "Delete" },
+            { x => x.Color, Color.Error }
+        };
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>("Delete inventory", parameters);
+        var result = await dialog.Result;
+
+        if (result?.Canceled != false || result.Data is not true)
+        {
+            return;
+        }
+
+        try
+        {
+            await InventoryService.DeleteAsync(context.Item.Id);
+
+            Snackbar.Add("Inventory deleted successfully", Severity.Success);
+            await dataGrid.ReloadServerData();
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Something went wrong...", Severity.Error);
+        }
+    }
+}

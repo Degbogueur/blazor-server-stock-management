@@ -1,0 +1,92 @@
+﻿@page "/stock-card"
+
+@using StockManagement.ViewModels.Products
+@using StockManagement.ViewModels.Requests
+
+@inject IReportService ReportService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Stock card : List of products</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Stock card: Products list</MudText>
+
+<MudDataGrid @ref="dataGrid" T="StockCardProductViewModel" ServerData="ServerReload" Filterable="false">
+    <ToolBarContent>
+        <MudSpacer />
+        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Immediate="true" DebounceInterval="300"
+                      Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.ProductCode" Title="Code">
+            <CellTemplate>
+                @(context.Item.ProductCode ?? "-")
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.ProductName" Title="Name" />
+        <PropertyColumn Property="x => x.CurrentStockLevel" Title="Current stock level" />
+        <PropertyColumn Property="x => x.TotalStockIn" Title="Total In" />
+        <PropertyColumn Property="x => x.TotalStockOut" Title="Total Out" />
+        <TemplateColumn CellClass="d-flex justify-end">
+            <CellTemplate>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Info"
+                           Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.TableView"
+                           OnClick="() => ShowStockCard(context)">
+                    <MudText>
+                        View stock card
+                    </MudText>
+                </MudButton>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-2">
+            No products found.
+        </MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="StockCardProductViewModel" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    MudDataGrid<StockCardProductViewModel> dataGrid = new();
+    string? searchTerm;
+
+    private async Task<GridData<StockCardProductViewModel>> ServerReload(GridState<StockCardProductViewModel> state)
+    {
+        var sortDefinition = state.SortDefinitions.FirstOrDefault();
+        var sortBy = sortDefinition?.SortBy;
+        var sortDescending = sortDefinition?.Descending ?? false;
+
+        var request = new DataGridRequest
+        {
+            Page = state.Page,
+            PageSize = state.PageSize,
+            SortBy = sortBy,
+            SortDescending = sortDescending,
+            SearchTerm = searchTerm
+        };
+
+        var result = await ReportService.GetStockCardProductsAsync(request);
+
+        return new GridData<StockCardProductViewModel>
+        {
+            Items = result.Items,
+            TotalItems = result.TotalCount
+        };
+    }
+
+    private Task OnSearch(string text)
+    {
+        searchTerm = text;
+        return dataGrid.ReloadServerData();
+    }
+
+    private void ShowStockCard(CellContext<StockCardProductViewModel> context)
+    {
+        NavigationManager.NavigateTo($"/stock-card/{context.Item.ProductId}");
+    }
+}

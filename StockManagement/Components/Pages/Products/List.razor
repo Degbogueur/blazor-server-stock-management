@@ -1,0 +1,208 @@
+﻿@page "/products"
+
+@using StockManagement.ViewModels.Products
+
+@inject IProductService ProductService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>List of products</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Products</MudText>
+
+<MudDataGrid @ref="dataGrid" T="ProductViewModel" ServerData="ServerReload" Filterable="false">
+    <ToolBarContent>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateProduct" >
+            Add new product
+        </MudButton>
+        <MudSpacer />
+        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Immediate="true" DebounceInterval="300" 
+                      Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" 
+                      IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.Code">
+            <CellTemplate>
+                @(context.Item.Code ?? "-")
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.Name" />
+        <PropertyColumn Property="x => x.CurrentStock" Title="Current stock" />
+        <PropertyColumn Property="x => x.MinimumStockLevel" Title="Min stock level" />
+        <PropertyColumn Property="x => x.CategoryName" Title="Category" />
+        <TemplateColumn CellClass="d-flex justify-end">
+            <CellTemplate>
+                <MudIconButton Class="me-2"
+                               Variant="Variant.Outlined"
+                               Icon="@Icons.Material.Filled.Edit"
+                               Color="Color.Info"
+                               Size="Size.Small"
+                               OnClick="() => UpdateProduct(context)"/>
+                <MudIconButton Variant="Variant.Outlined"
+                               Icon="@Icons.Material.Filled.Delete"
+                               Color="Color.Error"
+                               Size="Size.Small"
+                               OnClick="() => DeleteProduct(context)"/>
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-2">
+            No products found.
+        </MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="ProductViewModel" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    MudDataGrid<ProductViewModel> dataGrid = new MudDataGrid<ProductViewModel>();
+    string? searchString = null;
+
+    private async Task<GridData<ProductViewModel>> ServerReload(GridState<ProductViewModel> state)
+    {
+        var query = ProductService.GetProductsListQuery();
+
+        if (!string.IsNullOrWhiteSpace(searchString))
+        {
+            query = query.Where(product =>
+               EF.Functions.ILike(product.Name, $"%{searchString}%") ||
+               EF.Functions.ILike(product.Code ?? "", $"%{searchString}%") ||
+               EF.Functions.ILike(product.CategoryName, $"%{searchString}%") ||
+               EF.Functions.ILike(product.CurrentStock.ToString(), $"%{searchString}%") ||
+               EF.Functions.ILike(product.MinimumStockLevel.ToString(), $"%{searchString}%")
+            );
+        }
+
+        var sortDefinition = state.SortDefinitions.FirstOrDefault();
+        if (sortDefinition != null)
+        {
+            switch (sortDefinition.SortBy)
+            {
+                case nameof(ProductViewModel.Name):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.Name
+                    );
+                    break;
+                case nameof(ProductViewModel.CurrentStock):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.CurrentStock
+                    );
+                    break;
+                case nameof(ProductViewModel.MinimumStockLevel):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.MinimumStockLevel
+                    );
+                    break;
+                case nameof(ProductViewModel.CategoryName):
+                    query = query.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.CategoryName
+                    );
+                    break;
+            }
+        }
+
+        var totalItems = await query.CountAsync();
+
+        var pagedData = await query
+            .Skip(state.Page * state.PageSize)
+            .Take(state.PageSize)
+            .ToListAsync();
+
+        return new GridData<ProductViewModel>
+        {
+            TotalItems = totalItems,
+            Items = pagedData
+        };
+    }
+
+    private Task OnSearch(string text)
+    {
+        searchString = text;
+        return dataGrid.ReloadServerData();
+    }
+
+    private async Task CreateProduct()
+    {
+        var parameters = new DialogParameters<CreateOrUpdate> 
+        { 
+            { x => x.Model, new CreateOrUpdateProductViewModel() }
+        };
+        var dialog = await DialogService.ShowAsync<CreateOrUpdate>("Add new product", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            await dataGrid.ReloadServerData();
+        }
+    }
+
+    private async Task UpdateProduct(CellContext<ProductViewModel> context)
+    {
+        var updateViewModel = new CreateOrUpdateProductViewModel
+        {
+            Id = context.Item.Id,
+            Name = context.Item.Name,
+            Code = context.Item.Code,
+            MinimumStockLevel = context.Item.MinimumStockLevel,
+            CategoryName = context.Item.CategoryName
+        };
+
+        if (updateViewModel is null)
+        {
+            Snackbar.Add("Something went wrong while trying to get data", Severity.Warning);
+            return;
+        }
+
+        var parameters = new DialogParameters<CreateOrUpdate>
+        {
+            { x => x.Model, updateViewModel }
+        };
+        var dialog = await DialogService.ShowAsync<CreateOrUpdate>("Update product", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            await dataGrid.ReloadServerData();
+        }
+    }
+
+    private async Task DeleteProduct(CellContext<ProductViewModel> context)
+    {
+        var parameters = new DialogParameters<ConfirmationDialog>
+        {
+            { x => x.ContentText, "Do you really want to delete this product ? This action cannot be undone." },
+            { x => x.ButtonText, "Delete" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>(
+            $"Delete: {context.Item.Name}",
+            parameters);
+
+        var result = await dialog.Result;
+
+        if (result?.Canceled != false || result.Data is not true)
+            return;
+
+        try
+        {
+            bool isDeleted = await ProductService.DeleteProductAsync(context.Item.Id);
+
+            if (isDeleted)
+            {
+                Snackbar.Add($"Product '{context.Item.Name}' successfully deleted", Severity.Success);
+                await dataGrid.ReloadServerData();
+            }
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

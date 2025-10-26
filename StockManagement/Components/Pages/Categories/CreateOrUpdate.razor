@@ -1,0 +1,96 @@
+﻿@using StockManagement.ViewModels.Categories
+
+@inject ICategoryService CategoryService
+@inject ISnackbar Snackbar
+
+@rendermode InteractiveServer
+
+<EditForm Model="@Model" OnValidSubmit="OnValidSubmit">
+    <MudDialog>
+        <DialogContent>
+            <DataAnnotationsValidator />
+            <MudTextField InputType="InputType.Hidden" @bind-Value="Model.Id" />
+            <MudTextField Label="Name *"
+                          Class="mb-4"
+                          @bind-Value="Model.Name"
+                          For="() => Model.Name"
+                          Variant="Variant.Outlined"
+                          ShrinkLabel />
+            <MudTextField Label="Description"
+                          @bind-Value="Model.Description"
+                          For="() => Model.Description"
+                          Lines="3"
+                          Variant="Variant.Outlined"
+                          ShrinkLabel />
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary">Save</MudButton>
+        </DialogActions>
+    </MudDialog>
+</EditForm>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public CreateOrUpdateCategoryViewModel Model { get; set; }
+
+    private async Task OnValidSubmit(EditContext context)
+    {
+        if (Model.Id.HasValue && Model.Id != 0)
+            await UpdateCategory();
+
+        else await CreateCategory();
+    }
+
+    private async Task CreateCategory()
+    {
+        try
+        {
+            var result = await CategoryService.CreateNewCategoryAsync(Model);
+
+            if (result)
+            {
+                Snackbar.Add("New category added successfully", Severity.Success);
+                MudDialog.Close();
+            }
+            else
+            {
+                Snackbar.Add("Error adding new category", Severity.Error);
+            }
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task UpdateCategory()
+    {
+        try
+        {
+            var result = await CategoryService.UpdateCategoryAsync(Model);
+
+            if (result)
+            {
+                Snackbar.Add("Category updated successfully", Severity.Success);
+                MudDialog.Close();
+            }
+            else
+            {
+                Snackbar.Add("Error updating category", Severity.Error);
+            }
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

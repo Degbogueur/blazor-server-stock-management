@@ -1,7 +1,453 @@
 ﻿@page "/"
+@page "/dashboard"
 
-<PageTitle>Home</PageTitle>
+@using StockManagement.Services
+@using StockManagement.Models
+@using ApexCharts
+@using MudColor = MudBlazor.Color
+@using MudSize = MudBlazor.Size
+@using MudAlign = MudBlazor.Align
 
-<h1>Hello, world!</h1>
+@inject IDashboardService DashboardService
+@inject NavigationManager NavigationManager
 
-Welcome to your new app.
+<PageTitle>Dashboard</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Dashboard</MudText>
+
+@if (loading)
+{
+    <MudProgressCircular Color="MudColor.Primary" Indeterminate="true" />
+}
+else if (statistics != null)
+{
+    <MudStack Spacing="4">
+        <!-- Header with Period Selector -->
+        @*<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.h4">Dashboard</MudText>
+            <MudSelect T="string" @bind-Value="selectedPeriod" Label="Period" Variant="Variant.Outlined"
+                       AnchorOrigin="Origin.BottomCenter" Style="min-width: 200px;">
+                <MudSelectItem Value="@("last7days")">Last 7 Days</MudSelectItem>
+                <MudSelectItem Value="@("last30days")">Last 30 Days</MudSelectItem>
+                <MudSelectItem Value="@("last3months")">Last 3 Months</MudSelectItem>
+                <MudSelectItem Value="@("last6months")">Last 6 Months</MudSelectItem>
+                <MudSelectItem Value="@("lastYear")">Last Year</MudSelectItem>
+                <MudSelectItem Value="@("custom")">Custom Period</MudSelectItem>
+            </MudSelect>
+        </MudStack>
+
+        @if (selectedPeriod == "custom")
+        {
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudGrid>
+                    <MudItem xs="12" sm="4">
+                        <MudDatePicker @bind-Date="customStartDate" Label="Start Date" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudDatePicker @bind-Date="customEndDate" Label="End Date" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4" Class="d-flex align-end">
+                        <MudButton Variant="Variant.Filled" Color="MudColor.Primary"
+                                   OnClick="ApplyCustomPeriod" FullWidth="true">
+                            Apply
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        }*@
+
+        <!-- Key Metrics Cards (4 Large Cards) -->
+        <MudGrid>
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="2" Class="pa-6" Style="border-left: 4px solid var(--mud-palette-primary);">
+                    <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center">
+                        <MudAvatar Color="MudColor.Primary" Size="MudSize.Large" Variant="Variant.Filled">
+                            <MudIcon Icon="@Icons.Material.Filled.Inventory2" Size="MudSize.Large" />
+                        </MudAvatar>
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.h4" Style="font-weight: 600;" Color="MudColor.Primary">@statistics.TotalStockValue.ToString("N0")</MudText>
+                            <MudText Typo="Typo.body1" Color="MudColor.Default">Units in stock</MudText>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="2" Class="pa-6" Style="border-left: 4px solid var(--mud-palette-warning);">
+                    <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center">
+                        <MudAvatar Color="MudColor.Warning" Size="MudSize.Large" Variant="Variant.Filled">
+                            <MudIcon Icon="@Icons.Material.Filled.Warning" Size="MudSize.Large" />
+                        </MudAvatar>
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.h4" Style="font-weight: 600;" Color="MudColor.Warning">@statistics.LowStockCount</MudText>
+                            <MudText Typo="Typo.body1" Color="MudColor.Default">Products low stock</MudText>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="2" Class="pa-6" Style="border-left: 4px solid var(--mud-palette-error);">
+                    <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center">
+                        <MudAvatar Color="MudColor.Error" Size="MudSize.Large" Variant="Variant.Filled">
+                            <MudIcon Icon="@Icons.Material.Filled.RemoveCircle" Size="MudSize.Large" />
+                        </MudAvatar>
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.h4" Style="font-weight: 600;" Color="MudColor.Error">@statistics.OutOfStockCount</MudText>
+                            <MudText Typo="Typo.body1" Color="MudColor.Default">Products out of stock</MudText>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+
+            <MudItem xs="12" sm="6" md="3">
+                <MudPaper Elevation="2" Class="pa-6" Style="border-left: 4px solid var(--mud-palette-info);">
+                    <MudStack Row="true" Spacing="4" AlignItems="AlignItems.Center">
+                        <MudAvatar Color="MudColor.Info" Size="MudSize.Large" Variant="Variant.Filled">
+                            <MudIcon Icon="@Icons.Material.Filled.Assignment" Size="MudSize.Large" />
+                        </MudAvatar>
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.h4" Style="font-weight: 600;" Color="MudColor.Info">@statistics.PendingInventories</MudText>
+                            <MudText Typo="Typo.body1" Color="MudColor.Default">Pending inventories</MudText>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <!-- Charts Section -->
+        <MudGrid>
+            <!-- Stock Movement Trend -->
+            <MudItem xs="12" md="8">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-4">Stock Movement Trend</MudText>
+                    @if (stockMovementData != null && stockMovementData.Count != 0)
+                    {
+                        <ApexChart TItem="StockMovementChartData" Title="" Height="350">
+                            <ApexPointSeries TItem="StockMovementChartData"
+                                             Items="stockMovementData"
+                                             Name="Stock In"
+                                             SeriesType="SeriesType.Area"
+                                             XValue="@(e => e.Date.ToString("MMM dd"))"
+                                             YValue="@(e => (decimal)e.StockIn)"
+                                             Color="#10B981" />
+                            <ApexPointSeries TItem="StockMovementChartData"
+                                             Items="stockMovementData"
+                                             Name="Stock Out"
+                                             SeriesType="SeriesType.Area"
+                                             XValue="@(e => e.Date.ToString("MMM dd"))"
+                                             YValue="@(e => (decimal)e.StockOut)"
+                                             Color="#EF4444" />
+                        </ApexChart>
+                    }
+                    else
+                    {
+                        <MudText Align="MudAlign.Center" Class="pa-8" Color="MudColor.Secondary">No data available</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <!-- Stock by Category -->
+            <MudItem xs="12" md="4">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-4">Stock Distribution</MudText>
+                    @if (categoryStockData != null && categoryStockData.Count != 0)
+                    {
+                        <ApexChart TItem="CategoryStockData"
+                                   Title=""
+                                   Options="new ApexChartOptions<CategoryStockData>() { Legend = new Legend { Position = LegendPosition.Bottom } }">
+                            <ApexPointSeries TItem="CategoryStockData"
+                                             Items="categoryStockData"
+                                             Name="Units"
+                                             SeriesType="SeriesType.Donut"
+                                             XValue="@(e => e.CategoryName)"
+                                             YValue="@(e => (decimal)e.TotalStock)" />
+                        </ApexChart>
+                    }
+                    else
+                    {
+                        <MudText Align="MudAlign.Center" Class="pa-8" Color="MudColor.Secondary">No data available</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <!-- Operations by Day of Week -->
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-4">Operations by Day of Week</MudText>
+                    @if (operationsByDayData != null && operationsByDayData.Any())
+                    {
+                        <ApexChart TItem="OperationsByDayData" Title="" Height="300">
+                            <ApexPointSeries TItem="OperationsByDayData"
+                                             Items="operationsByDayData"
+                                             Name="Operations"
+                                             SeriesType="SeriesType.Bar"
+                                             XValue="@(e => e.DayOfWeek)"
+                                             YValue="@(e => (decimal)e.TotalOperations)"
+                                             Color="#3B82F6" />
+                        </ApexChart>
+                    }
+                    else
+                    {
+                        <MudText Align="MudAlign.Center" Class="pa-8" Color="MudColor.Secondary">No data available</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <!-- Stock In vs Stock Out Comparison -->
+            <MudItem xs="12" md="6">
+                <MudPaper Elevation="2" Class="pa-4">
+                    <MudText Typo="Typo.h6" Class="mb-4">Stock In vs Stock Out</MudText>
+                    @if (statistics != null)
+                    {
+                        <ApexChart TItem="StockComparisonData" Title="" Height="300">
+                            <ApexPointSeries TItem="StockComparisonData"
+                                             Items="@(new List<StockComparisonData> {
+                                               new StockComparisonData { Type = "Stock In", Value = statistics.TotalStockIn },
+                                               new StockComparisonData { Type = "Stock Out", Value = statistics.TotalStockOut }
+                                           })"
+                                             Name="Units"
+                                             SeriesType="SeriesType.Bar"
+                                             XValue="@(e => e.Type)"
+                                             YValue="@(e => (decimal)e.Value)"
+                                             Color="#8B5CF6" />
+                        </ApexChart>
+                    }
+                    else
+                    {
+                        <MudText Align="MudAlign.Center" Class="pa-8" Color="MudColor.Secondary">No data available</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudGrid>
+            <!-- Top Products -->
+            <MudItem xs="12" md="3">
+                <MudPaper Elevation="2" Class="pa-4" Style="min-height: 400px;">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Baseline" Class="mb-3">
+                        <MudText Typo="Typo.h6">Top Products</MudText>
+                        <MudText Typo="Typo.caption" Color="MudColor.Secondary">Total operations</MudText>
+                    </MudStack>
+                    @if (topProducts != null && topProducts.Count != 0)
+                    {
+                        <MudStack Spacing="2">
+                            @foreach (var (product, index) in topProducts.Select((p, i) => (p, i)))
+                            {
+                                <MudPaper Elevation="0" Class="pa-2" Style="background-color: var(--mud-palette-background-grey);">
+                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                            <MudChip T="string" Size="MudSize.Small" Variant="Variant.Filled">@(index + 1)</MudChip>
+                                            <MudText Typo="Typo.body2">@product.Name</MudText>
+                                        </MudStack>
+                                        <MudText Typo="Typo.body2" Color="MudColor.Primary"><b>@product.Count</b></MudText>
+                                    </MudStack>
+                                </MudPaper>
+                            }
+                        </MudStack>
+                    }
+                    else
+                    {
+                        <MudText Align="MudAlign.Center" Class="pa-4" Color="MudColor.Secondary">No data available</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <!-- Top Employees -->
+            <MudItem xs="12" md="3">
+                <MudPaper Elevation="2" Class="pa-4" Style="min-height: 400px;">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Baseline" Class="mb-3">
+                        <MudText Typo="Typo.h6">Top Employees</MudText>
+                        <MudText Typo="Typo.caption" Color="MudColor.Secondary">Total operations</MudText>
+                    </MudStack>
+                    @if (topEmployees != null && topEmployees.Count != 0)
+                    {
+                        <MudStack Spacing="2">
+                            @foreach (var (employee, index) in topEmployees.Select((e, i) => (e, i)))
+                            {
+                                <MudPaper Elevation="0" Class="pa-2" Style="background-color: var(--mud-palette-background-grey);">
+                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                            <MudChip T="string" Size="MudSize.Small" Variant="Variant.Filled">@(index + 1)</MudChip>
+                                            <MudText Typo="Typo.body2">@employee.Name</MudText>
+                                        </MudStack>
+                                        <MudText Typo="Typo.body2" Color="MudColor.Primary"><b>@employee.Count</b></MudText>
+                                    </MudStack>
+                                </MudPaper>
+                            }
+                        </MudStack>
+                    }
+                    else
+                    {
+                        <MudText Align="MudAlign.Center" Class="pa-4" Color="MudColor.Secondary">No data available</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <!-- Top Suppliers -->
+            <MudItem xs="12" md="3">
+                <MudPaper Elevation="2" Class="pa-4" Style="min-height: 400px;">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Baseline" Class="mb-3">
+                        <MudText Typo="Typo.h6">Top Suppliers</MudText>
+                        <MudText Typo="Typo.caption" Color="MudColor.Secondary">Total operations</MudText>
+                    </MudStack>
+                    @if (topSuppliers != null && topSuppliers.Count != 0)
+                    {
+                        <MudStack Spacing="2">
+                            @foreach (var (supplier, index) in topSuppliers.Select((s, i) => (s, i)))
+                            {
+                                <MudPaper Elevation="0" Class="pa-2" Style="background-color: var(--mud-palette-background-grey);">
+                                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                            <MudChip T="string" Size="MudSize.Small" Variant="Variant.Filled">@(index + 1)</MudChip>
+                                            <MudText Typo="Typo.body2">@supplier.Name</MudText>
+                                        </MudStack>
+                                        <MudText Typo="Typo.body2" Color="MudColor.Primary"><b>@supplier.Count</b></MudText>
+                                    </MudStack>
+                                </MudPaper>
+                            }
+                        </MudStack>
+                    }
+                    else
+                    {
+                        <MudText Align="MudAlign.Center" Class="pa-4" Color="MudColor.Secondary">No data available</MudText>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <!-- Low Stock Alerts -->
+            <MudItem xs="12" md="3">
+                <MudPaper Elevation="2" Class="pa-4" Style="min-height: 400px;">
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mb-3">
+                        <MudText Typo="Typo.h6">Low Stock Alerts</MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.OpenInNew"
+                                       Size="MudSize.Small"
+                                       OnClick="@(() => NavigationManager.NavigateTo("/products"))" />
+                    </MudStack>
+
+                    @if (lowStockAlerts != null && lowStockAlerts.Count != 0)
+                    {
+                        <MudList T="string" Dense="true">
+                            @foreach (var alert in lowStockAlerts)
+                            {
+                                <MudListItem T="string">
+                                    <MudStack Spacing="1">
+                                        <MudStack Row="true"
+                                                  Justify="Justify.SpaceBetween"
+                                                  AlignItems="AlignItems.Center">
+
+                                            <MudText Typo="Typo.body2">
+                                                <b>@alert.ProductName</b>
+                                            </MudText>
+
+                                            <MudChip T="string"
+                                                     Size="MudSize.Small"
+                                                     Color="@(alert.IsOutOfStock ? MudColor.Error : MudColor.Warning)">
+                                                @alert.CurrentStock
+                                            </MudChip>
+                                        </MudStack>
+
+                                        <MudText Typo="Typo.caption" Color="MudColor.Secondary">
+                                            Min: @alert.MinimumStockLevel
+                                        </MudText>
+                                    </MudStack>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Success" Dense="true">
+                            All products are well stocked!
+                        </MudAlert>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </MudStack>
+}
+
+@code {
+    bool loading = true;
+    string selectedPeriod = "last30days";
+    DateTime? customStartDate;
+    DateTime? customEndDate;
+    DateTime startDate;
+    DateTime endDate;
+
+    DashboardStatistics? statistics;
+    List<StockMovementChartData>? stockMovementData;
+    List<CategoryStockData>? categoryStockData;
+    List<OperationsByDayData>? operationsByDayData;
+    List<TopItemData>? topProducts;
+    List<TopItemData>? topEmployees;
+    List<TopItemData>? topSuppliers;
+    List<LowStockAlertData>? lowStockAlerts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        ApplyPeriod();
+        await RefreshData();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (selectedPeriod != "custom")
+        {
+            ApplyPeriod();
+            await RefreshData();
+        }
+    }
+
+    private void ApplyPeriod()
+    {
+        endDate = DateTime.Today;
+        startDate = selectedPeriod switch
+        {
+            "last7days" => endDate.AddDays(-7),
+            "last30days" => endDate.AddDays(-30),
+            "last3months" => endDate.AddMonths(-3),
+            "last6months" => endDate.AddMonths(-6),
+            "lastYear" => endDate.AddYears(-1),
+            _ => endDate.AddDays(-30)
+        };
+    }
+
+    private async Task ApplyCustomPeriod()
+    {
+        if (customStartDate.HasValue && customEndDate.HasValue)
+        {
+            startDate = customStartDate.Value;
+            endDate = customEndDate.Value;
+            await RefreshData();
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        loading = true;
+        try
+        {
+            var days = (endDate - startDate).Days;
+
+            statistics = await DashboardService.GetDashboardStatisticsAsync(startDate, endDate);
+            stockMovementData = await DashboardService.GetStockMovementChartDataAsync(days);
+            categoryStockData = await DashboardService.GetStockByCategoryAsync();
+            operationsByDayData = await DashboardService.GetOperationsByDayOfWeekAsync(startDate, endDate);
+            topProducts = await DashboardService.GetTopProductsByOperationsAsync(5, startDate, endDate);
+            topEmployees = await DashboardService.GetTopEmployeesAsync(5, startDate, endDate);
+            topSuppliers = await DashboardService.GetTopSuppliersAsync(5, startDate, endDate);
+            lowStockAlerts = await DashboardService.GetLowStockAlertsAsync();
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    public class StockComparisonData
+    {
+        public string Type { get; set; } = string.Empty;
+        public int Value { get; set; }
+    }
+}

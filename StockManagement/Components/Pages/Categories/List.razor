@@ -1,0 +1,188 @@
+﻿@page "/categories"
+
+@using StockManagement.ViewModels.Categories
+
+@inject ICategoryService CategoryService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>List of categories</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Categories</MudText> 
+
+<MudDataGrid @ref="dataGrid" T="CategoryViewModel" ServerData="ServerReload" Filterable="false">
+    <ToolBarContent>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" @onclick="CreateCategory">
+            Add new category
+        </MudButton>
+        <MudSpacer />
+        <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Immediate="true" Placeholder="Search"
+                      Adornment="Adornment.Start" DebounceInterval="300"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <Columns>
+        <PropertyColumn Property="x => x.Name" />
+        <PropertyColumn Property="x => x.Description">
+            <CellTemplate>
+                @(context.Item.Description ?? "-")
+            </CellTemplate>
+        </PropertyColumn>
+        <PropertyColumn Property="x => x.ProductsCount" Title="Number of products" />
+        <TemplateColumn CellClass="d-flex justify-end">
+            <CellTemplate>
+                <MudIconButton Class="me-2" 
+                               Variant="Variant.Outlined" 
+                               Icon="@Icons.Material.Filled.Edit"
+                               Color="Color.Info" 
+                               Size="Size.Small"
+                               @onclick="() => UpdateCategory(context)"/>
+                <MudIconButton Variant="Variant.Outlined" 
+                               Icon="@Icons.Material.Filled.Delete" 
+                               Color="Color.Error" 
+                               Size="Size.Small"
+                               @onclick="() => DeleteCategory(context)" />
+            </CellTemplate>
+        </TemplateColumn>
+    </Columns>
+    <NoRecordsContent>
+        <MudText Typo="Typo.body1" Align="Align.Center" Class="pa-2">
+            No categories found.
+        </MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudDataGridPager T="CategoryViewModel" />
+    </PagerContent>
+</MudDataGrid>
+
+@code {
+    MudDataGrid<CategoryViewModel> dataGrid = new MudDataGrid<CategoryViewModel>();
+    string? searchString = null;
+
+    private async Task<GridData<CategoryViewModel>> ServerReload(GridState<CategoryViewModel> state)
+    {
+        IEnumerable<CategoryViewModel> data = await CategoryService.GetCategoriesListAsync();
+
+        data = data.Where(element =>
+        {
+            if (string.IsNullOrWhiteSpace(searchString))
+                return true;
+            if (element.Name.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (!string.IsNullOrEmpty(element.Description) &&
+                element.Description.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+                return true;
+            return false;
+        }).ToArray();
+        var totalItems = data.Count();
+
+        var sortDefinition = state.SortDefinitions.FirstOrDefault();
+        if (sortDefinition != null)
+        {
+            switch (sortDefinition.SortBy)
+            {
+                case nameof(CategoryViewModel.Name):
+                    data = data.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.Name
+                    );
+                    break;
+                case nameof(CategoryViewModel.Description):
+                    data = data.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.Description
+                    );
+                    break;
+            }
+        }
+
+        var pagedData = data.Skip(state.Page * state.PageSize).Take(state.PageSize).ToArray();
+        return new GridData<CategoryViewModel>
+        {
+            TotalItems = totalItems,
+            Items = pagedData
+        };
+    }
+
+    private Task OnSearch(string text)
+    {
+        searchString = text;
+        return dataGrid.ReloadServerData();
+    }
+
+    private async Task CreateCategory()
+    {
+        var parameters = new DialogParameters<CreateOrUpdate>
+        {
+            { x => x.Model, new CreateOrUpdateCategoryViewModel() }
+        };
+        var dialog = await DialogService.ShowAsync<CreateOrUpdate>("Add new category", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            await dataGrid.ReloadServerData();
+        }
+    }
+
+    private async Task UpdateCategory(CellContext<CategoryViewModel> context)
+    {
+        var updateViewModel = new CreateOrUpdateCategoryViewModel
+        {
+            Id = context.Item.Id,
+            Name = context.Item.Name,
+            Description = context.Item.Description
+        };
+
+        if (updateViewModel is null)
+        {
+            Snackbar.Add("Something went wrong while trying to get data", Severity.Warning);
+            return;
+        }
+
+        var parameters = new DialogParameters<CreateOrUpdate>
+        {
+            { x => x.Model, updateViewModel }
+        };
+        var dialog = await DialogService.ShowAsync<CreateOrUpdate>("Update category", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            await dataGrid.ReloadServerData();
+        }
+    }
+
+    private async Task DeleteCategory(CellContext<CategoryViewModel> context)
+    {
+        var parameters = new DialogParameters<ConfirmationDialog>
+        {
+            { x => x.ContentText, "Do you really want to delete this category ? This action cannot be undone." },
+            { x => x.ButtonText, "Delete" },
+            { x => x.Color, Color.Error }
+        };
+
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>(
+            $"Delete: {context.Item.Name}",
+            parameters);
+
+        var result = await dialog.Result;
+
+        if (result?.Canceled != false || result.Data is not true)
+            return;
+
+        try
+        {
+            bool isDeleted = await CategoryService.DeleteCategoryAsync(context.Item.Id);
+
+            if (isDeleted)
+            {
+                Snackbar.Add($"Category  '{context.Item.Name}' successfully deleted", Severity.Success);
+                await dataGrid.ReloadServerData();
+            }
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+}

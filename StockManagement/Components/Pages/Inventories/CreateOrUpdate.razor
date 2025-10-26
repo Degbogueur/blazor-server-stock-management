@@ -1,0 +1,416 @@
+﻿@page "/inventories/save"
+@page "/inventories/save/{InventoryId:int?}"
+
+@using StockManagement.ViewModels.Inventories
+
+@inject IInventoryService InventoryService
+@inject IDialogService DialogService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<PageTitle>@Title</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudTooltip Text="Back to Inventories">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                       Color="Color.Primary"
+                       OnClick="@(() => NavigationManager.NavigateTo("/inventories"))" />
+    </MudTooltip>
+    <MudText Typo="Typo.h4">Stock inventory</MudText>
+</MudStack>
+
+@if (inventoryRows == null)
+{
+    <MudProgressCircular Indeterminate="true" />
+    <MudText>Loading inventory snapshot...</MudText>
+}
+else
+{
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6" Color="Color.Primary">@inventoryRows.Count</MudText>
+                <MudText Typo="Typo.body2">Total Products</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6" Color="Color.Success">@GetMatchingCount()</MudText>
+                <MudText Typo="Typo.body2">Matching Counts</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudPaper Class="pa-4">
+                <MudText Typo="Typo.h6" Color="Color.Warning">@GetDiscrepancyCount()</MudText>
+                <MudText Typo="Typo.body2">Discrepancies</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudTable ServerData="ServerReload" Hover="true" @ref="table" CanCancelEdit="true" @bind-SelectedItem="selectedRow"
+              CommitEditTooltip="Save" CancelEditTooltip="Cancel" RowEditPreview="BackupRow" RowEditCancel="ResetRow">
+        <ToolBarContent>
+
+            @if (inventoryRows != null && inventoryRows.Count != 0)
+            {
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Default"
+                           OnClick="SaveAsDraft"
+                           Disabled="@isSaving"
+                           StartIcon="@Icons.Material.Filled.Schedule"
+                           Class="me-2">
+                    Save as Draft
+                </MudButton>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Success"
+                           OnClick="Complete"
+                           Disabled="@isSaving"
+                           StartIcon="@Icons.Material.Filled.Save">
+                    Complete Inventory
+                </MudButton>
+            }
+
+            <MudSpacer />
+            <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Immediate="true" DebounceInterval="300"
+                          Placeholder="Search" Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        </ToolBarContent>
+        <ColGroup>
+            <col style="width: 12%;" />
+            <col style="width: 25%;" />
+            <col style="width: 15%;" />
+            <col style="width: 15%;" />
+            <col style="width: 13%;" />
+            <col style="width: 12%;" />
+            <col style="width: 8%;" />
+        </ColGroup>
+        <HeaderContent>
+            <MudTh><MudTableSortLabel SortLabel="code_field" T="InventoryRowViewModel">Code</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="product_name_field" T="InventoryRowViewModel">Product name</MudTableSortLabel></MudTh>
+            <MudTh Style="text-align: center;"><MudTableSortLabel SortLabel="expected_qty_field" T="InventoryRowViewModel">Expected quantity</MudTableSortLabel></MudTh>
+            <MudTh Style="text-align: center;"><MudTableSortLabel SortLabel="counted_qty_field" T="InventoryRowViewModel">Counted quantity</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortLabel="status_field" T="InventoryRowViewModel">Status</MudTableSortLabel></MudTh>
+            <MudTh Style="text-align: center;"><MudTableSortLabel SortLabel="variance_field" T="InventoryRowViewModel">Variance</MudTableSortLabel></MudTh>
+            <MudTh Style="text-align: right;"></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Code">@context.ProductCode</MudTd>
+            <MudTd DataLabel="Product name">@context.ProductName</MudTd>
+            <MudTd DataLabel="Expected quantity" Style="text-align: center;">@context.ExpectedQuantity</MudTd>
+            <MudTd DataLabel="Counted quantity" Style="text-align: center;">@context.CountedQuantity</MudTd>
+            <MudTd DataLabel="Status">
+                @if (context.CountedQuantity == context.ExpectedQuantity)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Icons.Material.Filled.CheckCircle">
+                        Match
+                    </MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Error">
+                        Discrepancy
+                    </MudChip>
+                }
+            </MudTd>
+            <MudTd DataLabel="Variance" Style="text-align: center;">
+                @{
+                    var variance = context.CountedQuantity - context.ExpectedQuantity;
+                    if (variance == 0)
+                    {
+                        <MudText>-</MudText>
+                    }
+                    else
+                    {
+                        <MudText Color="@(variance > 0 ? Color.Success : Color.Error)">
+                            @(variance > 0 ? "+" : "")@variance
+                        </MudText>
+                    }
+                }
+            </MudTd>
+            <MudTd DataLabel="" Style="text-align: right;"></MudTd>
+        </RowTemplate>
+        <RowEditingTemplate>
+            <MudTd DataLabel="Code">@context.ProductCode</MudTd>
+            <MudTd DataLabel="Product name">@context.ProductName</MudTd>
+            <MudTd DataLabel="Expected quantity" Style="text-align: center;">@context.ExpectedQuantity</MudTd>
+            <MudTd DataLabel="Counted quantity" Style="text-align: center;">
+                <MudNumericField @bind-Value="@context.CountedQuantity" 
+                                 Min="0" 
+                                 Required="true" 
+                                 Immediate="true" />
+            </MudTd>
+            <MudTd DataLabel="Status">
+                @if (context.CountedQuantity == context.ExpectedQuantity)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Icons.Material.Filled.CheckCircle">
+                        Match
+                    </MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Error">
+                        Discrepancy
+                    </MudChip>
+                }
+            </MudTd>
+            <MudTd DataLabel="Variance" Style="text-align: center;">
+                @{
+                    var variance = context.CountedQuantity - context.ExpectedQuantity;
+                    if (variance == 0)
+                    {
+                        <MudText>-</MudText>
+                    }
+                    else
+                    {
+                        <MudText Color="@(variance > 0 ? Color.Success : Color.Error)">
+                            @(variance > 0 ? "+" : "")@variance
+                        </MudText>
+                    }
+                }
+            </MudTd>
+            <MudTd DataLabel="" Style="text-align: right;"></MudTd>
+        </RowEditingTemplate>
+        <NoRecordsContent>
+            <MudText>No matching records found</MudText>
+        </NoRecordsContent>
+        <LoadingContent>
+            <MudText>Loading...</MudText>
+        </LoadingContent>
+        <PagerContent>
+            <MudTablePager />
+        </PagerContent>
+    </MudTable>
+}
+
+@code {
+    [Parameter]
+    public int? InventoryId { get; set; }
+    private string Title { get; set; } = "New stock inventory";
+
+    private List<InventoryRowViewModel>? inventoryRows = null;
+    private bool isSaving;
+
+    private MudTable<InventoryRowViewModel> table = null!;
+    private string? searchTerm = null;
+
+    private InventoryRowViewModel selectedRow = new();
+    private InventoryRowViewModel? backupedRow = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Title = InventoryId.HasValue ? "Edit stock inventory" : "New stock inventory";
+        inventoryRows = await InventoryService.GetRowsViewModelAsync(InventoryId);
+    }
+
+    private Task<TableData<InventoryRowViewModel>> ServerReload(TableState state, CancellationToken token)
+    {
+        // Work with the snapshot data only
+        if (inventoryRows == null)
+            return Task.FromResult(new TableData<InventoryRowViewModel>() { TotalItems = 0, Items = [] });
+
+        IEnumerable<InventoryRowViewModel> query = inventoryRows;
+
+        // Apply search filter on the snapshot
+        if (!string.IsNullOrWhiteSpace(searchTerm))
+        {
+            query = query.Where(product =>
+                (product.ProductCode ?? "").Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                product.ProductName.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                product.ExpectedQuantity.ToString().Contains(searchTerm) ||
+                product.CountedQuantity.ToString().Contains(searchTerm)
+            );
+        }
+
+        // Apply sorting
+        query = state.SortLabel switch
+        {
+            "code_field" => state.SortDirection == SortDirection.Descending
+                ? query.OrderByDescending(o => o.ProductCode)
+                : query.OrderBy(o => o.ProductCode),
+            "product_name_field" => state.SortDirection == SortDirection.Descending
+                ? query.OrderByDescending(o => o.ProductName)
+                : query.OrderBy(o => o.ProductName),
+            "expected_qty_field" => state.SortDirection == SortDirection.Descending
+                ? query.OrderByDescending(o => o.ExpectedQuantity)
+                : query.OrderBy(o => o.ExpectedQuantity),
+            "counted_qty_field" => state.SortDirection == SortDirection.Descending
+                ? query.OrderByDescending(o => o.CountedQuantity)
+                : query.OrderBy(o => o.CountedQuantity),
+            "status_field" => state.SortDirection == SortDirection.Descending
+                ? query.OrderByDescending(o => GetStatusOrder(o))
+                : query.OrderBy(o => GetStatusOrder(o)),
+            "variance_field" => state.SortDirection == SortDirection.Descending
+                ? query.OrderByDescending(o => o.CountedQuantity - o.ExpectedQuantity)
+                : query.OrderBy(o => o.CountedQuantity - o.ExpectedQuantity),
+            _ => query
+        };
+
+        var totalItems = query.Count();
+
+        // Apply pagination
+        var pagedData = query
+            .Skip(state.Page * state.PageSize)
+            .Take(state.PageSize)
+            .ToList();
+
+        return Task.FromResult(new TableData<InventoryRowViewModel>()
+        {
+            TotalItems = totalItems,
+            Items = pagedData
+        });
+    }
+
+    private Task OnSearch(string text)
+    {
+        searchTerm = text;
+        return table.ReloadServerData();
+    }
+
+    private void BackupRow(object row)
+    {
+        backupedRow = new()
+        {
+            CountedQuantity = ((InventoryRowViewModel)row).CountedQuantity
+        };
+    }
+
+    private void ResetRow(object row)
+    {
+        if (backupedRow != null)
+            ((InventoryRowViewModel)row).CountedQuantity = backupedRow.CountedQuantity;
+    }
+
+    private int GetStatusOrder(InventoryRowViewModel row)
+    {
+        if (row.CountedQuantity == row.ExpectedQuantity)
+            return 0; // Match
+        return 1; // Discrepancy
+    }
+
+    private int GetMatchingCount()
+    {
+        if (inventoryRows == null)
+            return 0;
+
+        return inventoryRows.Count(x => x.CountedQuantity == x.ExpectedQuantity);
+    }
+
+    private int GetDiscrepancyCount()
+    {
+        if (inventoryRows == null)
+            return 0;
+
+        return inventoryRows.Count(x => x.CountedQuantity != x.ExpectedQuantity);
+    }
+
+    private async Task SaveAsDraft()
+    {
+        isSaving = true;
+
+        var parameters = new DialogParameters<ConfirmationDialog>
+{
+        { x => x.ContentText, "Save this inventory as draft? You can continue working on it later." },
+        { x => x.ButtonText, "Save Draft" },
+        { x => x.Color, Color.Primary }
+    };
+
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>("Save as Draft", parameters);
+        var result = await dialog.Result;
+
+        if (result?.Canceled != false || result.Data is not true)
+        {
+            isSaving = false;
+            return;
+        }
+
+        try
+        {
+            if (inventoryRows == null || inventoryRows.Count == 0)
+            {
+                Snackbar.Add("There are no products in the inventory", Severity.Warning);
+                return;
+            }
+
+            if (InventoryId.HasValue)
+            {
+                await InventoryService.UpdateAsync(InventoryId.Value, inventoryRows);
+            }
+            else
+            {
+                await InventoryService.SaveAsDraftAsync(inventoryRows);
+            }
+
+            Snackbar.Add("Inventory draft saved successfully", Severity.Success);
+
+            NavigationManager.NavigateTo("/inventories");
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Error while saving draft", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+
+    private async Task Complete()
+    {
+        isSaving = true;
+
+        var parameters = new DialogParameters<ConfirmationDialog>
+{
+            { x => x.ContentText, "Do you really want to complete this inventory ? You won't be able to modify it afterward." },
+            { x => x.ButtonText, "Complete" },
+            { x => x.Color, Color.Success }
+        };
+        var dialog = await DialogService.ShowAsync<ConfirmationDialog>("Complete inventory", parameters);
+        var result = await dialog.Result;
+
+        if (result?.Canceled != false || result.Data is not true)
+        {
+            isSaving = false;
+            return;
+        }
+
+        try
+        {
+            if (inventoryRows == null || inventoryRows.Count == 0)
+            {
+                Snackbar.Add("There are no products in the inventory", Severity.Warning);
+                return;
+            }
+
+            if (InventoryId.HasValue)
+            {
+                await InventoryService.UpdateAsync(InventoryId.Value, inventoryRows, Models.InventoryStatus.Completed);
+            }
+            else
+            { 
+                await InventoryService.SaveAsCompletedAsync(inventoryRows);
+            }
+
+            Snackbar.Add($"Stock inventory completed successfully", Severity.Success);
+
+            NavigationManager.NavigateTo("/inventories");
+        }
+        catch (BaseException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add($"Error while completing operations", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

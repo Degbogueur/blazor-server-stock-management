@@ -11,5 +11,5 @@ public class Employee : BaseEntity
     [NotMapped]
     public string FullName => $"{FirstName} {LastName}";
 
-    public ICollection<Operation> Operations { get; set; } = [];
+    public ICollection<StockOutOperation> Operations { get; set; } = [];
 }
