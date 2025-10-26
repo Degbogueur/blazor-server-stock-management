@@ -189,21 +189,18 @@
         using var DbContext = await DbContextFactory.CreateDbContextAsync();
         // Load lookup data sequentially to avoid concurrent query issues
         products = await DbContext.Products
-            .Where(p => !p.IsDeleted)
             .Select(p => new Product { Id = p.Id, Name = p.Name })
             .OrderBy(p => p.Name)
             .AsNoTracking()
             .ToListAsync();
 
         suppliers = await DbContext.Suppliers
-            .Where(s => !s.IsDeleted)
             .Select(s => new Supplier { Id = s.Id, Name = s.Name })
             .OrderBy(s => s.Name)
             .AsNoTracking()
             .ToListAsync();
 
         employees = await DbContext.Employees
-            .Where(e => !e.IsDeleted)
             .Select(e => new Employee { Id = e.Id, FirstName = e.FirstName, LastName = e.LastName })
             .OrderBy(e => e.FirstName)
             .ThenBy(e => e.LastName)
