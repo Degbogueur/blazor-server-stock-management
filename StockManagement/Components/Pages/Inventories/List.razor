@@ -39,19 +39,14 @@
                 </MudChip>
             </CellTemplate>
         </PropertyColumn>
-        <PropertyColumn Property="x => x.TotalProducts" Title="Total products" HeaderStyle="text-align: center;" CellStyle="text-align: center;" />
-        <PropertyColumn Property="x => x.MatchingCount" Title="Matching" HeaderStyle="text-align: center;">
+        <PropertyColumn Property="x => x.TotalExpectedUnits" Title="Total expected">
             <CellTemplate>
-                <MudText Align="Align.Center">
-                    @context.Item.MatchingCount
-                </MudText>
+                @context.Item.TotalExpectedUnits units
             </CellTemplate>
         </PropertyColumn>
-        <PropertyColumn Property="x => x.DiscrepanciesCount" Title="Discrepancies" HeaderStyle="text-align: center;">
+        <PropertyColumn Property="x => x.TotalCountedUnits" Title="Total counted">
             <CellTemplate>
-                <MudText Color="@(context.Item.DiscrepanciesCount > 0 ? Color.Warning : Color.Default)" Align="Align.Center">
-                    @context.Item.DiscrepanciesCount
-                </MudText>
+                @context.Item.TotalCountedUnits units
             </CellTemplate>
         </PropertyColumn>
         <PropertyColumn Property="x => x.Variance">
@@ -67,14 +62,14 @@
                 {
                     <MudChip Color="Color.Info" Size="Size.Small" Variant="Variant.Text">
                         <MudIcon Icon="@Icons.Material.Filled.TrendingUp" Size="Size.Small" Class="me-1" />
-                        +@context.Item.Variance item@(Math.Abs(context.Item.Variance) > 1 ? "s" : "")
+                        +@context.Item.Variance unit@(Math.Abs(context.Item.Variance) > 1 ? "s" : "")
                     </MudChip>
                 }
                 else
                 {
                     <MudChip Color="Color.Error" Size="Size.Small" Variant="Variant.Text">
                         <MudIcon Icon="@Icons.Material.Filled.TrendingDown" Size="Size.Small" Class="me-1" />
-                        @context.Item.Variance item@(Math.Abs(context.Item.Variance) > 1 ? "s" : "")
+                        @context.Item.Variance unit@(Math.Abs(context.Item.Variance) > 1 ? "s" : "")
                     </MudChip>
                 }
             </CellTemplate>
@@ -82,18 +77,33 @@
         <TemplateColumn CellClass="">
             <CellTemplate>
                 @if (context.Item.Status == InventoryStatus.Pending)
-                { 
-                    <MudIconButton Class="me-2"
-                                   Variant="Variant.Outlined"
-                                   Icon="@Icons.Material.Filled.Edit"
-                                   Color="Color.Info"
-                                   Size="Size.Small"
-                                   OnClick="@(() => NavigationManager.NavigateTo($"/inventories/save/{context.Item.Id}"))"/>
-                    <MudIconButton Variant="Variant.Outlined"
-                                   Icon="@Icons.Material.Filled.Delete"
-                                   Color="Color.Error"
-                                   Size="Size.Small"
-                                   OnClick="() => DeleteInventory(context)"/>
+                {
+                    <MudTooltip Text="Edit">
+                        <MudIconButton Class="me-2"
+                                       Variant="Variant.Outlined"
+                                       Icon="@Icons.Material.Filled.Edit"
+                                       Color="Color.Info"
+                                       Size="Size.Small"
+                                       OnClick="@(() => NavigationManager.NavigateTo($"/inventories/save/{context.Item.Id}"))" />
+                    </MudTooltip>
+                    <MudTooltip Text="Delete">
+                        <MudIconButton Variant="Variant.Outlined"
+                                       Icon="@Icons.Material.Filled.Delete"
+                                       Color="Color.Error"
+                                       Size="Size.Small"
+                                       OnClick="() => DeleteInventory(context)" />
+                    </MudTooltip>
+                }
+                else if (context.Item.Status == InventoryStatus.Completed)
+                {
+                    <MudTooltip Text="View details">
+                        <MudIconButton Class="me-2"
+                                       Variant="Variant.Outlined"
+                                       Icon="@Icons.Material.Filled.Info"
+                                       Color="Color.Warning"
+                                       Size="Size.Small"
+                                       OnClick="@(() => NavigationManager.NavigateTo($"/inventories/details/{context.Item.Id}"))" />
+                    </MudTooltip>
                 }
             </CellTemplate>
         </TemplateColumn>
@@ -132,9 +142,8 @@
             query = query.Where(inventory =>
                EF.Functions.ILike(inventory.Code, $"%{searchString}%") ||
                EF.Functions.ILike(inventory.Date.ToString(), $"%{searchString}%") ||
-               EF.Functions.ILike(inventory.TotalProducts.ToString(), $"%{searchString}%") ||
-               EF.Functions.ILike(inventory.MatchingCount.ToString(), $"%{searchString}%") ||
-               EF.Functions.ILike(inventory.DiscrepanciesCount.ToString(), $"%{searchString}%") ||
+               EF.Functions.ILike(inventory.TotalExpectedUnits.ToString(), $"%{searchString}%") ||
+               EF.Functions.ILike(inventory.TotalCountedUnits.ToString(), $"%{searchString}%") ||
                EF.Functions.ILike(inventory.Variance.ToString(), $"%{searchString}%")
             );
         }
@@ -162,22 +171,16 @@
                         o => o.Status
                     );
                     break;
-                case nameof(InventoryViewModel.TotalProducts):
+                case nameof(InventoryViewModel.TotalExpectedUnits):
                     query = query.OrderByDirection(
                         sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
-                        o => o.TotalProducts
+                        o => o.TotalExpectedUnits
                     );
                     break;
-                case nameof(InventoryViewModel.MatchingCount):
+                case nameof(InventoryViewModel.TotalCountedUnits):
                     query = query.OrderByDirection(
                         sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
-                        o => o.MatchingCount
-                    );
-                    break;
-                case nameof(InventoryViewModel.DiscrepanciesCount):
-                    query = query.OrderByDirection(
-                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
-                        o => o.DiscrepanciesCount
+                        o => o.TotalCountedUnits
                     );
                     break;
                 case nameof(InventoryViewModel.Variance):

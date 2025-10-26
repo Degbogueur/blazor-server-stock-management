@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 using StockManagement.Data;
 using StockManagement.Exceptions;
 using StockManagement.Mappers;
@@ -12,6 +13,7 @@ public interface IInventoryService
     Task DeleteAsync(int id);
     IQueryable<InventoryViewModel> GetInventoriesListQuery();
     Task<List<InventoryRowViewModel>> GetRowsViewModelAsync(int? inventoryId = null);
+    Task<InventoryViewModel?> GetInventoryDetailsAsync(int inventoryId);
     Task SaveAsDraftAsync(List<InventoryRowViewModel> viewModels);
     Task SaveAsCompletedAsync(List<InventoryRowViewModel> viewModels);
     Task UpdateAsync(int inventoryId, List<InventoryRowViewModel> viewModels, InventoryStatus? status = null);
@@ -84,6 +86,27 @@ internal class InventoryService(
                 .AsNoTracking()
                 .ToListAsync();
         }            
+    }
+
+    public async Task<InventoryViewModel?> GetInventoryDetailsAsync(int inventoryId)
+    {
+        return await dbContext.Inventories
+            .Where(i => i.Id == inventoryId)
+            .Select(i => new InventoryViewModel
+            {
+                Id = i.Id,
+                Code = i.Code,
+                Date = i.Date,
+                Status = i.Status,
+                TotalExpectedUnits = i.Rows
+                    .Sum(r => r.ExpectedQuantity),
+                TotalCountedUnits = i.Rows
+                    .Sum(r => r.CountedQuantity),
+                Variance = i.Rows
+                    .Sum(r => r.CountedQuantity - r.ExpectedQuantity)
+            })
+            .AsNoTracking()
+            .FirstOrDefaultAsync();
     }
 
     public async Task SaveAsDraftAsync(List<InventoryRowViewModel> viewModels)

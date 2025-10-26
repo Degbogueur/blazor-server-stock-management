@@ -24,9 +24,8 @@ public static class InventoryMappers
             Code = inventory.Code,
             Date = inventory.Date,
             Status = inventory.Status,
-            TotalProducts = inventory.Rows.Count,
-            MatchingCount = inventory.Rows.Count(r => r.CountedQuantity == r.ExpectedQuantity),
-            DiscrepanciesCount = inventory.Rows.Count(r => r.CountedQuantity != r.ExpectedQuantity),
+            TotalExpectedUnits = inventory.Rows.Sum(r => r.ExpectedQuantity),
+            TotalCountedUnits = inventory.Rows.Sum(r => r.CountedQuantity),
             Variance = inventory.Rows.Sum(r => r.CountedQuantity - r.ExpectedQuantity)
         }; 
     }
