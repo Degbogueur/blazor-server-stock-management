@@ -53,13 +53,11 @@ internal class ReportService(
         // Build separate queries for StockIn and StockOut
         IQueryable<StockInOperation> stockInQuery = dbContext.Set<StockInOperation>()
             .Include(o => o.Product)
-            .Include(o => o.Supplier)
-            .Where(o => !o.IsDeleted);
+            .Include(o => o.Supplier);
 
         IQueryable<StockOutOperation> stockOutQuery = dbContext.Set<StockOutOperation>()
             .Include(o => o.Product)
-            .Include(o => o.Employee)
-            .Where(o => !o.IsDeleted);
+            .Include(o => o.Employee);
 
         // Apply operation type filter
         if (operationType.HasValue)
@@ -113,16 +111,14 @@ internal class ReportService(
         {
             stockInQuery = stockInQuery.Where(o =>
                 EF.Functions.ILike(o.Product!.Name, $"%{request.SearchTerm}%") ||
-                EF.Functions.ILike(o.Quantity.ToString(), $"%{request.SearchTerm}%") ||
                 EF.Functions.ILike(o.Supplier!.Name, $"%{request.SearchTerm}%") ||
-                EF.Functions.ILike(o.Type.ToString(), $"%{request.SearchTerm}%"));
+                EF.Functions.ILike(OperationType.StockIn.ToString(), $"%{request.SearchTerm}%"));
 
             stockOutQuery = stockOutQuery.Where(o =>
                 EF.Functions.ILike(o.Product!.Name, $"%{request.SearchTerm}%") ||
-                EF.Functions.ILike(o.Quantity.ToString(), $"%{request.SearchTerm}%") ||
                 EF.Functions.ILike(o.Employee!.FirstName, $"%{request.SearchTerm}%") ||
                 EF.Functions.ILike(o.Employee!.LastName, $"%{request.SearchTerm}%") ||
-                EF.Functions.ILike(o.Type.ToString(), $"%{request.SearchTerm}%"));
+                EF.Functions.ILike(OperationType.StockOut.ToString(), $"%{request.SearchTerm}%"));
         }
 
         // Get counts from both queries
