@@ -81,4 +81,50 @@ public class ReportPdfController(IReportPdfService pdfService) : Controller
             return StatusCode(500, $"Error generating PDF: {ex.Message}");
         }
     }
+
+    [HttpGet("download-stock-levels-report")]
+    public async Task<IActionResult> DownloadStockLevelsReport([FromQuery] DateTime? asOfDate = null)
+    {
+        try
+        {
+            var userName = User.GetUserFullName() ?? User.Identity?.Name ?? "Unknown User";
+
+            var pdfBytes = await pdfService.GenerateStockLevelsReportAsync(asOfDate, userName);
+
+            var fileName = $"Stock_Levels" +
+                $"{(asOfDate != null ? $"_As_For_{asOfDate.Value.ToShortDateString()}" : "")}" +
+                $"_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+
+            return File(pdfBytes, "application/pdf", fileName);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error generating PDF: {ex.Message}");
+        }
+    }
+
+    [HttpGet("preview-stock-levels-report")]
+    public async Task<IActionResult> PreviewStockLevelsReport([FromQuery] DateTime? asOfDate = null)
+    {
+        try
+        {
+            var userName = User.GetUserFullName() ?? User.Identity?.Name ?? "Unknown User";
+
+            var pdfBytes = await pdfService.GenerateStockLevelsReportAsync(asOfDate, userName);
+
+            return File(pdfBytes, "application/pdf");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error generating PDF: {ex.Message}");
+        }
+    }
 }
