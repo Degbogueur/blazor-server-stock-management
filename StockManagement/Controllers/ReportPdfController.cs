@@ -127,4 +127,55 @@ public class ReportPdfController(IReportPdfService pdfService) : Controller
             return StatusCode(500, $"Error generating PDF: {ex.Message}");
         }
     }
+
+    [HttpGet("download-stock-card-report")]
+    public async Task<IActionResult> DownloadStockCardReport(
+        [FromQuery] int productId,
+        [FromQuery] string productName,
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null)
+    {
+        try
+        {
+            var userName = User.GetUserFullName() ?? User.Identity?.Name ?? "Unknown User";
+
+            var pdfBytes = await pdfService.GenerateStockCardReportAsync(productId, startDate, endDate, userName);
+
+            var fileName = $"{productName}_Stock_Card_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+
+            return File(pdfBytes, "application/pdf", fileName);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error generating PDF: {ex.Message}");
+        }
+    }
+
+    [HttpGet("preview-stock-card-report")]
+    public async Task<IActionResult> PreviewStockLevelsReport(
+        [FromQuery] int productId,
+        [FromQuery] DateTime? startDate = null,
+        [FromQuery] DateTime? endDate = null)
+    {
+        try
+        {
+            var userName = User.GetUserFullName() ?? User.Identity?.Name ?? "Unknown User";
+
+            var pdfBytes = await pdfService.GenerateStockCardReportAsync(productId, startDate, endDate, userName);
+
+            return File(pdfBytes, "application/pdf");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, $"Error generating PDF: {ex.Message}");
+        }
+    }
 }

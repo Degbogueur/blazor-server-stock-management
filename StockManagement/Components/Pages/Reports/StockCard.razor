@@ -5,6 +5,7 @@
 
 @inject IReportService ReportService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Stock Card - @stockCard?.ProductName</PageTitle>
 
@@ -76,7 +77,21 @@ else
                       LoadingProgressColor="Color.Primary"
                       Filter="new Func<StockCardRowViewModel, bool>(FilterFunc)">
                 <ToolBarContent>
-                    <MudText Typo="Typo.h6">Operations History</MudText>
+                    <MudStack Row="true" Spacing="2">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Default"
+                                   StartIcon="@Icons.Material.Filled.RemoveRedEye"
+                                   OnClick="PreviewPdf">
+                            Preview PDF
+                        </MudButton>
+
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Error"
+                                   StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                                   OnClick="DownloadPdf">
+                            Export to PDF
+                        </MudButton>
+                    </MudStack>
                     <MudSpacer />
                     <MudTextField @bind-Value="searchString"
                                   Placeholder="Search"
@@ -206,5 +221,44 @@ else
             OperationType.StockOut => (Color.Error, Icons.Material.Filled.RemoveCircle, "Stock Out"),
             _ => (Color.Default, Icons.Material.Filled.Help, "Unknown")
         };
+    }
+
+    private async Task PreviewPdf()
+    {
+        var queryParams = new List<string>();
+
+        queryParams.Add($"productId={ProductId}");
+
+        if (startDate.HasValue)
+            queryParams.Add($"startDate={startDate.Value:yyyy-MM-dd}");
+
+        if (endDate.HasValue)
+            queryParams.Add($"endDate={endDate.Value:yyyy-MM-dd}");
+
+        var queryString = queryParams.Count != 0 ? "?" + string.Join("&", queryParams) : "";
+
+        var url = $"/api/ReportPdf/preview-stock-card-report{queryString}";
+        await JSRuntime.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    private async Task DownloadPdf()
+    {
+        var queryParams = new List<string>();
+
+        queryParams.Add($"productId={ProductId}");
+
+        string productName = stockCard?.ProductName ?? "product";
+        queryParams.Add($"productName={productName}");
+
+        if (startDate.HasValue)
+            queryParams.Add($"startDate={startDate.Value:yyyy-MM-dd}");
+
+        if (endDate.HasValue)
+            queryParams.Add($"endDate={endDate.Value:yyyy-MM-dd}");
+
+        var queryString = queryParams.Count != 0 ? "?" + string.Join("&", queryParams) : "";
+
+        var url = $"/api/ReportPdf/download-stock-card-report{queryString}";
+        await JSRuntime.InvokeVoidAsync("open", url, "_blank");
     }
 }
