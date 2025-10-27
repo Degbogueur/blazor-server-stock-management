@@ -5,6 +5,7 @@
 
 @inject IInventoryService InventoryService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 
 <PageTitle>Inventory Details</PageTitle>
 
@@ -29,9 +30,22 @@ else if (inventory != null)
                     <MudText Typo="Typo.body2" Color="Color.Secondary">@inventory.Code</MudText>
                 </div>
             </MudStack>
-            <MudChip T="string" Color="Color.Success" Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Variant="Variant.Filled">
-                Completed
-            </MudChip>
+
+            <MudStack Row="true" Spacing="2">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Default"
+                           StartIcon="@Icons.Material.Filled.RemoveRedEye"
+                           OnClick="PreviewPdf">
+                    Preview PDF
+                </MudButton>
+
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Error"
+                           StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                           OnClick="DownloadPdf">
+                    Export to PDF
+                </MudButton>
+            </MudStack>
         </MudStack>
 
         <!-- Inventory Information Card -->
@@ -181,5 +195,25 @@ else
                row.ProductName.ToLower().Contains(search) ||
                row.ExpectedQuantity.ToString().Contains(search) ||
                row.CountedQuantity.ToString().Contains(search);
+    }
+
+    private async Task PreviewPdf()
+    {
+
+        var url = $"/api/ReportPdf/preview-inventory-report/{InventoryId}";
+        await JSRuntime.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    private async Task DownloadPdf()
+    {
+        var queryParams = new List<string>();
+
+        string inventoryCode = inventory?.Code ?? Guid.NewGuid().ToString();
+        queryParams.Add($"inventoryCode={inventoryCode}");
+
+        var queryString = queryParams.Count != 0 ? "?" + string.Join("&", queryParams) : "";
+
+        var url = $"/api/ReportPdf/download-inventory-report/{InventoryId}/{queryString}";
+        await JSRuntime.InvokeVoidAsync("open", url, "_blank");
     }
 }

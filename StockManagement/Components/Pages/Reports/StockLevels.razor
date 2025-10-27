@@ -4,6 +4,7 @@
 @using StockManagement.ViewModels.Requests
 
 @inject IReportService ReportService
+@inject IJSRuntime JSRuntime
 
 <PageTitle>@pageTitle</PageTitle>
 
@@ -24,11 +25,21 @@
 
 <MudDataGrid @ref="dataGrid" T="ProductViewModel" ServerData="LoadServerData" Filterable="true">
     <ToolBarContent>
-        <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
-                   StartIcon="@Icons.Material.Filled.PictureAsPdf"
-                   Class="ml-2">
-            Export to PDF
-        </MudButton>
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Default"
+                       StartIcon="@Icons.Material.Filled.RemoveRedEye"
+                       OnClick="PreviewPdf">
+                Preview PDF
+            </MudButton>
+
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Error"
+                       StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                       OnClick="DownloadPdf">
+                Export to PDF
+            </MudButton>
+        </MudStack>
         <MudSpacer />
         <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Immediate="true" DebounceInterval="300"
                       Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
@@ -107,5 +118,31 @@
     {
         searchTerm = text;
         return dataGrid.ReloadServerData();
+    }
+
+    private async Task PreviewPdf()
+    {
+        var queryParams = new List<string>();
+
+        if (selectedDate.HasValue)
+            queryParams.Add($"asOfDate={selectedDate.Value:yyyy-MM-dd}");
+
+        var queryString = queryParams.Count != 0 ? "?" + string.Join("&", queryParams) : "";
+
+        var url = $"/api/ReportPdf/preview-stock-levels-report{queryString}";
+        await JSRuntime.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    private async Task DownloadPdf()
+    {
+        var queryParams = new List<string>();
+
+        if (selectedDate.HasValue)
+            queryParams.Add($"asOfDate={selectedDate.Value:yyyy-MM-dd}");
+
+        var queryString = queryParams.Count != 0 ? "?" + string.Join("&", queryParams) : "";
+
+        var url = $"/api/ReportPdf/download-stock-levels-report{queryString}";
+        await JSRuntime.InvokeVoidAsync("open", url, "_blank");
     }
 }

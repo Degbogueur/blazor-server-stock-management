@@ -332,7 +332,7 @@
             queryParams.Add($"sortDescending={sortDefinition.Descending}");
         }
 
-        var queryString = queryParams.Any() ? "?" + string.Join("&", queryParams) : "";
+        var queryString = queryParams.Count != 0 ? "?" + string.Join("&", queryParams) : "";
         var url = $"/api/ReportPdf/download-operations-report{queryString}";
 
         // Trigger download using JavaScript
